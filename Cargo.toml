@@ -1,0 +1,21 @@
+[package]
+name = "nostr-bot"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+futures-util = "0.3.21"
+json = "0.12.4"
+secp256k1 = {version = "0.23.3", features = ["rand", "rand-std", "bitcoin_hashes"]}
+serde = {version = "1.0.138", features = ["serde_derive"]}
+serde_json = "1.0.82"
+tokio = {version = "1.19.2", features = ["macros", "rt-multi-thread", "time", "sync"]}
+tokio-socks = "0.5.1"
+tokio-tungstenite = {version = "0.17.1", features = ["native-tls"]}
+tungstenite = "0.17.2"
+url = "2.2.2"
+env_logger = "0.9.0"
+log = "0.4.17"
+rand = "0.8.5"
