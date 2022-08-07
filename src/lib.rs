@@ -10,7 +10,8 @@ pub mod utils;
 type NostrMessageReceiver = tokio::sync::mpsc::Receiver<nostr::Message>;
 type NostrMessageSender = tokio::sync::mpsc::Sender<nostr::Message>;
 
-pub type Closure<State> = Box<dyn Fn(nostr::Event, State) -> nostr::EventNonSigned + Send>;
+pub type ClosureRaw<State> =dyn Fn(nostr::Event, State) -> nostr::EventNonSigned + Send + Sync;
+pub type Closure<State> = Box<ClosureRaw<State>>;
 
 pub type Commands<State> =
     std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Closure<State>>>>;
@@ -43,7 +44,6 @@ pub struct Bot<State: Clone + Send + Sync + 'static> {
     profile: Profile,
 }
 
-
 impl<State: Clone + Send + Sync + 'static> Bot<State> {
     pub fn new(
         keypair: secp256k1::KeyPair,
@@ -59,12 +59,12 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         }
     }
 
-    pub fn add_command(mut self, command: &str, cl: Closure<State>) -> Self {
+    pub fn add_command(mut self, command: &str, cl: &'static ClosureRaw<State>) -> Self {
         match self
             .commands
             .lock()
             .unwrap()
-            .insert(command.to_string(), cl)
+            .insert(command.to_string(), Box::new(cl))
         {
             Some(_) => panic!("Failed to add command {}", command),
             None => {}
@@ -156,7 +156,7 @@ async fn main_bot_listener<State: Clone + Sync + Send>(
         std::sync::Mutex<
             std::collections::HashMap<
                 String,
-                Box<dyn Fn(nostr::Event, State) -> nostr::EventNonSigned + Send>,
+                Closure<State>,
             >,
         >,
     >,
@@ -401,4 +401,18 @@ async fn request_subscription(keypair: &secp256k1::KeyPair, sink: network::Sink)
         sink,
     )
     .await;
+}
+
+pub fn init_logger() {
+    // let _start = std::time::Instant::now();
+    env_logger::Builder::from_default_env()
+        // .format(move |buf, rec| {
+        // let t = start.elapsed().as_secs_f32();
+        // writeln!(buf, "{:.03} [{}] - {}", t, rec.level(), rec.args())
+        // })
+        .init();
+}
+
+pub fn wrap<T>(gift: T) -> State<T> {
+    std::sync::Arc::new(std::sync::Mutex::new(gift))
 }
