@@ -53,7 +53,7 @@ impl Profile {
         }
     }
 }
-pub struct Bot<State: Clone + Send + Sync + 'static> {
+pub struct Bot<State: Clone + Send + Sync> {
     keypair: secp256k1::KeyPair,
     relays: Vec<String>,
     network_type: network::Network,
@@ -65,7 +65,7 @@ pub struct Bot<State: Clone + Send + Sync + 'static> {
     streams: Option<Vec<network::Stream>>,
 }
 
-impl<State: Clone + Send + Sync + 'static> Bot<State> {
+impl<State: Clone + Send + Sync> Bot<State> {
     pub fn new(
         keypair: secp256k1::KeyPair,
         relays: Vec<String>,
