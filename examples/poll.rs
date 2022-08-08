@@ -121,10 +121,10 @@ async fn main() {
     let smt = "Blabla ok no".to_string();
 
     // let bla = move |event: nostr_bot::nostr::Event,
-               // _state: nostr_bot::State<Votes>|
-     // -> nostr_bot::nostr::EventNonSigned {
-        // let msg = event.content.clone();
-        // nostr_bot::nostr::format_reply(event, format!("Congrats for saying {}. {}", msg, smt))
+    // _state: nostr_bot::State<Votes>|
+    // -> nostr_bot::nostr::EventNonSigned {
+    // let msg = event.content.clone();
+    // nostr_bot::nostr::format_reply(event, format!("Congrats for saying {}. {}", msg, smt))
     // };
 
     let pic_url = "https://thumbs.dreamstime.com/z/poll-survey-results-voting-election-opinion-word-red-d-letters-pie-chart-to-illustrate-opinions-61587174.jpg";
@@ -143,12 +143,20 @@ async fn main() {
     info!("Starting bot");
     bot.connect().await;
     let sender = bot.get_sender();
-    sender.lock().await.send(nostr_bot::nostr::EventNonSigned {
-        created_at: nostr_bot::utils::unix_timestamp(),
-        kind: 1,
-        content: "Just tesing here".to_string(),
-        tags: vec![],
-    }.sign(&keypair).format()).await;
+    sender
+        .lock()
+        .await
+        .send(
+            nostr_bot::nostr::EventNonSigned {
+                created_at: nostr_bot::utils::unix_timestamp(),
+                kind: 1,
+                content: "Just tesing here".to_string(),
+                tags: vec![],
+            }
+            .sign(&keypair)
+            .format(),
+        )
+        .await;
 
     bot.run(state).await;
 }

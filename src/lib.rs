@@ -1,3 +1,5 @@
+use futures_util::Future;
+use futures_util::SinkExt;
 use futures_util::StreamExt;
 use log::{debug, info, warn};
 
@@ -10,7 +12,7 @@ pub mod utils;
 type NostrMessageReceiver = tokio::sync::mpsc::Receiver<nostr::Message>;
 type NostrMessageSender = tokio::sync::mpsc::Sender<nostr::Message>;
 
-pub type FunctorRaw<State> =dyn Fn(nostr::Event, State) -> nostr::EventNonSigned + Send + Sync;
+pub type FunctorRaw<State> = dyn Fn(nostr::Event, State) -> nostr::EventNonSigned + Send + Sync;
 pub type Functor<State> = Box<FunctorRaw<State>>;
 
 pub type Commands<State> =
@@ -19,7 +21,7 @@ pub type Commands<State> =
 pub type State<T> = std::sync::Arc<std::sync::Mutex<T>>;
 
 // pub type Sender= std::sync::Arc<std::sync::Mutex<Sender>>>;
-pub type Sender= std::sync::Arc<tokio::sync::Mutex<SenderRaw>>;
+pub type Sender = std::sync::Arc<tokio::sync::Mutex<SenderRaw>>;
 
 pub struct SenderRaw {
     sinks: Vec<network::Sink>,
@@ -33,7 +35,6 @@ impl SenderRaw {
     pub fn add(&mut self, sink: network::Sink) {
         self.sinks.push(sink);
     }
-
 }
 
 struct Profile {
@@ -78,7 +79,7 @@ impl<State: Clone + Send + Sync> Bot<State> {
             commands: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
             profile: Profile::new(),
 
-            sender: std::sync::Arc::new(tokio::sync::Mutex::new(SenderRaw{ sinks: vec![]})),
+            sender: std::sync::Arc::new(tokio::sync::Mutex::new(SenderRaw { sinks: vec![] })),
             streams: None,
         }
     }
@@ -120,32 +121,32 @@ impl<State: Clone + Send + Sync> Bot<State> {
         self
     }
 
-
     pub async fn connect(&mut self) {
         debug!("Connecting to relays.");
         let (sinks, streams) = network::try_connect(&self.relays, &self.network_type).await;
         assert!(!sinks.is_empty() && !streams.is_empty());
-        self.sender = std::sync::Arc::new(tokio::sync::Mutex::new(SenderRaw {sinks}));
+        self.sender = std::sync::Arc::new(tokio::sync::Mutex::new(SenderRaw { sinks }));
         self.streams = Some(streams);
     }
 
     pub async fn run(&mut self, state: State) {
-
         if let None = self.streams {
             debug!("Running run() but there is no connection yet. Connecting now.");
             self.connect().await;
         }
 
-        let handle = self.really_run(
-            state,
-        )
-        .await;
+        let handle = self.really_run(state).await;
     }
 
-    async fn really_run(&mut self,
-        state: State,
-    )  {
-        set_profile(&self.keypair, self.sender.clone(), self.profile.name.clone(), self.profile.about.clone(), self.profile.picture_url.clone()).await;
+    async fn really_run(&mut self, state: State) {
+        set_profile(
+            &self.keypair,
+            self.sender.clone(),
+            self.profile.name.clone(),
+            self.profile.about.clone(),
+            self.profile.picture_url.clone(),
+        )
+        .await;
 
         let (main_bot_tx, main_bot_rx) = tokio::sync::mpsc::channel::<nostr::Message>(64);
 
@@ -160,7 +161,6 @@ impl<State: Clone + Send + Sync> Bot<State> {
                 tokio::spawn(async move {
                     listen_relay(stream, sink, main_bot_tx, keypair).await;
                 });
-
             }
         }
 
@@ -179,24 +179,23 @@ impl<State: Clone + Send + Sync> Bot<State> {
         };
 
         let commands = self.commands.clone();
-        main_bot_listener(state.clone(), self.sender.clone(), main_bot_rx, &keypair, commands).await
+        main_bot_listener(
+            state.clone(),
+            self.sender.clone(),
+            main_bot_rx,
+            &keypair,
+            commands,
+        )
+        .await
     }
 }
-
 
 async fn main_bot_listener<State: Clone + Sync + Send>(
     state: State,
     sender: Sender,
     mut rx: NostrMessageReceiver,
     keypair: &secp256k1::KeyPair,
-    commands: std::sync::Arc<
-        std::sync::Mutex<
-            std::collections::HashMap<
-                String,
-                Functor<State>,
-            >,
-        >,
-    >,
+    commands: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Functor<State>>>>,
 ) {
     let mut handled_events = std::collections::HashSet::new();
 
@@ -247,7 +246,11 @@ async fn main_bot_listener<State: Clone + Sync + Send>(
         };
 
         if let Some(response) = response {
-            sender.lock().await.send(response.sign(keypair).format()).await;
+            sender
+                .lock()
+                .await
+                .send(response.sign(keypair).format())
+                .await;
         }
     }
 }
@@ -352,31 +355,41 @@ async fn set_profile(
     about: Option<String>,
     picture_url: Option<String>,
 ) {
-
-    let name = if let Some(name) = name { name } else {"".to_string()};
-    let about = if let Some(about) = about { about } else {"".to_string()};
-    let picture_url = if let Some(picture_url) = picture_url { picture_url } else {"".to_string()};
+    let name = if let Some(name) = name {
+        name
+    } else {
+        "".to_string()
+    };
+    let about = if let Some(about) = about {
+        about
+    } else {
+        "".to_string()
+    };
+    let picture_url = if let Some(picture_url) = picture_url {
+        picture_url
+    } else {
+        "".to_string()
+    };
 
     info!(
         "main bot is settings name: \"{}\", about: \"{}\", picture_url: \"{}\"",
         name, about, picture_url
     );
 
+    // Set profile
+    let message = nostr::Event::new(
+        keypair,
+        utils::unix_timestamp(),
+        0,
+        vec![],
+        format!(
+            r#"{{\"name\":\"{}\",\"about\":\"{}\",\"picture\":\"{}\"}}"#,
+            name, about, picture_url
+        ),
+    )
+    .format();
 
-
-        // Set profile
-        let message = nostr::Event::new(
-            keypair,
-            utils::unix_timestamp(),
-            0,
-            vec![],
-            format!(
-                r#"{{\"name\":\"{}\",\"about\":\"{}\",\"picture\":\"{}\"}}"#,
-                name, about, picture_url
-            ),
-        ).format();
-
-        sender.lock().await.send(message).await;
+    sender.lock().await.send(message).await;
 }
 
 async fn introduction(
