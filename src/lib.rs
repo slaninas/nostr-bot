@@ -1,4 +1,3 @@
-use futures_util::SinkExt;
 use futures_util::StreamExt;
 use log::{debug, info, warn};
 
@@ -89,7 +88,7 @@ impl<State: Clone + Send + Sync> Bot<State> {
         }
     }
 
-    pub fn add_command(mut self, command: &str, cl: Functor<State>) -> Self {
+    pub fn add_command(self, command: &str, cl: Functor<State>) -> Self {
         match self
             .commands
             .lock()
@@ -140,7 +139,7 @@ impl<State: Clone + Send + Sync> Bot<State> {
             self.connect().await;
         }
 
-        let handle = self.really_run(state).await;
+        self.really_run(state).await;
     }
 
     async fn really_run(&mut self, state: State) {
@@ -400,48 +399,6 @@ async fn set_profile(
     sender.lock().await.send(message).await;
 }
 
-async fn introduction(
-    name: &String,
-    about: &String,
-    picture_url: &String,
-    hello_message: &String,
-    keypair: &secp256k1::KeyPair,
-    sinks: Vec<network::Sink>,
-) {
-    for sink in sinks {
-        // info!("Main bot is sending set_metadata >{}<
-        // Set profile
-        info!(
-            "main bot is settings name: \"{}\", about: \"{}\", picture_url: \"{}\"",
-            name, about, picture_url
-        );
-        let event = nostr::Event::new(
-            keypair,
-            utils::unix_timestamp(),
-            0,
-            vec![],
-            format!(
-                r#"{{\"name\":\"{}\",\"about\":\"{}\",\"picture\":\"{}\"}}"#,
-                name, about, picture_url
-            ),
-        );
-
-        network::send(event.format(), sink.clone()).await;
-
-        // Say hi
-        let welcome = nostr::Event::new(
-            keypair,
-            utils::unix_timestamp(),
-            1,
-            vec![],
-            hello_message.clone(),
-        );
-
-        info!("main bot is sending message \"{}\"", hello_message);
-        network::send(welcome.format(), sink.clone()).await;
-    }
-}
-
 async fn request_subscription(keypair: &secp256k1::KeyPair, sink: network::Sink) {
     let random_string = rand::thread_rng()
         .sample_iter(rand::distributions::Alphanumeric)
@@ -471,6 +428,6 @@ pub fn init_logger() {
         .init();
 }
 
-pub fn wrap<T>(gift: T) -> State<T> {
+pub fn wrap_state<T>(gift: T) -> State<T> {
     std::sync::Arc::new(std::sync::Mutex::new(gift))
 }
