@@ -94,35 +94,29 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
 
     pub async fn run(&self, state: State) {
         let handle = self.really_run(
-            self.keypair,
             state,
-            &self.relays,
-            self.commands.clone(),
-            &self.network_type,
         )
         .await;
         handle.await.unwrap();
     }
 
-    pub async fn really_run(&self,
-        keypair: secp256k1::KeyPair,
+    async fn really_run(&self,
         state: State,
-        relays: &Vec<String>,
-        commands: Commands<State>,
-        network: &network::Network,
     ) -> tokio::task::JoinHandle<()> {
-        let (sinks, streams) = network::try_connect(relays, &network).await;
+        let (sinks, streams) = network::try_connect(&self.relays, &self.network_type).await;
         assert!(!sinks.is_empty() && !streams.is_empty());
 
-        set_profile(&keypair, sinks.clone(), self.profile.name.clone(), self.profile.about.clone(), self.profile.picture_url.clone()).await;
+
+        set_profile(&self.keypair, sinks.clone(), self.profile.name.clone(), self.profile.about.clone(), self.profile.picture_url.clone()).await;
 
         let (main_bot_tx, main_bot_rx) = tokio::sync::mpsc::channel::<nostr::Message>(64);
 
+        let keypair = self.keypair;
         for (id, stream) in streams.into_iter().enumerate() {
             let sink = sinks[id].clone();
             let main_bot_tx = main_bot_tx.clone();
             tokio::spawn(async move {
-                listen_relay(stream, sink, main_bot_tx, &keypair).await;
+                listen_relay(stream, sink, main_bot_tx, keypair).await;
             });
         }
 
@@ -140,6 +134,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
             network::send_to_all(welcome.format(), sinks.clone()).await;
         };
 
+        let commands = self.commands.clone();
         tokio::spawn(async move {
             main_bot_listener(state.clone(), sinks, main_bot_rx, &keypair, commands).await;
         })
@@ -219,7 +214,7 @@ async fn listen_relay(
     stream: network::Stream,
     sink: network::Sink,
     main_bot_tx: NostrMessageSender,
-    main_bot_keypair: &secp256k1::KeyPair,
+    main_bot_keypair: secp256k1::KeyPair,
 ) {
     info!("Relay listener for {} started.", sink.peer_addr);
     let peer_addr = sink.peer_addr.clone();
@@ -233,7 +228,7 @@ async fn listen_relay(
     let mut sink = sink;
 
     loop {
-        relay_listener(stream, sink.clone(), main_bot_tx.clone(), main_bot_keypair).await;
+        relay_listener(stream, sink.clone(), main_bot_tx.clone(), &main_bot_keypair).await;
         let wait = std::time::Duration::from_secs(30);
         warn!(
             "Connection with {} lost, I will try to reconnect in {:?}",
