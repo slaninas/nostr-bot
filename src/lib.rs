@@ -18,6 +18,24 @@ pub type Commands<State> =
 
 pub type State<T> = std::sync::Arc<std::sync::Mutex<T>>;
 
+// pub type Sender= std::sync::Arc<std::sync::Mutex<Sender>>>;
+pub type Sender= std::sync::Arc<tokio::sync::Mutex<SenderRaw>>;
+
+pub struct SenderRaw {
+    sinks: Vec<network::Sink>,
+}
+
+impl SenderRaw {
+    pub async fn send(&self, message: String) {
+        network::send_to_all(message, self.sinks.clone()).await;
+    }
+
+    pub fn add(&mut self, sink: network::Sink) {
+        self.sinks.push(sink);
+    }
+
+}
+
 struct Profile {
     name: Option<String>,
     about: Option<String>,
@@ -42,6 +60,8 @@ pub struct Bot<State: Clone + Send + Sync + 'static> {
     commands: Commands<State>,
 
     profile: Profile,
+
+    sender: Sender,
 }
 
 impl<State: Clone + Send + Sync + 'static> Bot<State> {
@@ -56,6 +76,8 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
             network_type,
             commands: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
             profile: Profile::new(),
+
+            sender: std::sync::Arc::new(tokio::sync::Mutex::new(SenderRaw{ sinks: vec![]})),
         }
     }
 
@@ -70,6 +92,10 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
             None => {}
         }
         self
+    }
+
+    pub fn get_sender(&self) -> Sender {
+        self.sender.clone()
     }
 
     pub fn set_name(mut self, name: &str) -> Self {
@@ -104,10 +130,12 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         state: State,
     ) -> tokio::task::JoinHandle<()> {
         let (sinks, streams) = network::try_connect(&self.relays, &self.network_type).await;
+
+
         assert!(!sinks.is_empty() && !streams.is_empty());
 
-
-        set_profile(&self.keypair, sinks.clone(), self.profile.name.clone(), self.profile.about.clone(), self.profile.picture_url.clone()).await;
+        let sender = std::sync::Arc::new(tokio::sync::Mutex::new(SenderRaw {sinks: sinks.clone()}));
+        set_profile(&self.keypair, sender.clone(), self.profile.name.clone(), self.profile.about.clone(), self.profile.picture_url.clone()).await;
 
         let (main_bot_tx, main_bot_rx) = tokio::sync::mpsc::channel::<nostr::Message>(64);
 
@@ -131,12 +159,12 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
             );
 
             info!("main bot is sending message \"{}\"", message);
-            network::send_to_all(welcome.format(), sinks.clone()).await;
+            sender.lock().await.send(welcome.format()).await;
         };
 
         let commands = self.commands.clone();
         tokio::spawn(async move {
-            main_bot_listener(state.clone(), sinks, main_bot_rx, &keypair, commands).await;
+            main_bot_listener(state.clone(), sender, main_bot_rx, &keypair, commands).await;
         })
     }
 }
@@ -144,7 +172,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
 
 async fn main_bot_listener<State: Clone + Sync + Send>(
     state: State,
-    sinks: Vec<network::Sink>,
+    sender: Sender,
     mut rx: NostrMessageReceiver,
     keypair: &secp256k1::KeyPair,
     commands: std::sync::Arc<
@@ -205,7 +233,7 @@ async fn main_bot_listener<State: Clone + Sync + Send>(
         };
 
         if let Some(response) = response {
-            network::send_to_all(response.sign(keypair).format(), sinks.clone()).await;
+            sender.lock().await.send(response.sign(keypair).format()).await;
         }
     }
 }
@@ -305,7 +333,7 @@ async fn relay_listener(
 
 async fn set_profile(
     keypair: &secp256k1::KeyPair,
-    sinks: Vec<network::Sink>,
+    sender: Sender,
     name: Option<String>,
     about: Option<String>,
     picture_url: Option<String>,
@@ -320,9 +348,10 @@ async fn set_profile(
         name, about, picture_url
     );
 
-    for sink in sinks {
+
+
         // Set profile
-        let event = nostr::Event::new(
+        let message = nostr::Event::new(
             keypair,
             utils::unix_timestamp(),
             0,
@@ -331,10 +360,9 @@ async fn set_profile(
                 r#"{{\"name\":\"{}\",\"about\":\"{}\",\"picture\":\"{}\"}}"#,
                 name, about, picture_url
             ),
-        );
+        ).format();
 
-        network::send(event.format(), sink.clone()).await;
-    }
+        sender.lock().await.send(message).await;
 }
 
 async fn introduction(
