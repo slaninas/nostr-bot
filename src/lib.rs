@@ -62,6 +62,7 @@ pub struct Bot<State: Clone + Send + Sync + 'static> {
     profile: Profile,
 
     sender: Sender,
+    streams: Option<Vec<network::Stream>>,
 }
 
 impl<State: Clone + Send + Sync + 'static> Bot<State> {
@@ -78,6 +79,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
             profile: Profile::new(),
 
             sender: std::sync::Arc::new(tokio::sync::Mutex::new(SenderRaw{ sinks: vec![]})),
+            streams: None,
         }
     }
 
@@ -118,34 +120,48 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         self
     }
 
-    pub async fn run(&self, state: State) {
+
+    pub async fn connect(&mut self) {
+        debug!("Connecting to relays.");
+        let (sinks, streams) = network::try_connect(&self.relays, &self.network_type).await;
+        assert!(!sinks.is_empty() && !streams.is_empty());
+        self.sender = std::sync::Arc::new(tokio::sync::Mutex::new(SenderRaw {sinks}));
+        self.streams = Some(streams);
+    }
+
+    pub async fn run(&mut self, state: State) {
+
+        if let None = self.streams {
+            debug!("Running run() but there is no connection yet. Connecting now.");
+            self.connect().await;
+        }
+
         let handle = self.really_run(
             state,
         )
         .await;
-        handle.await.unwrap();
     }
 
-    async fn really_run(&self,
+    async fn really_run(&mut self,
         state: State,
-    ) -> tokio::task::JoinHandle<()> {
-        let (sinks, streams) = network::try_connect(&self.relays, &self.network_type).await;
-
-
-        assert!(!sinks.is_empty() && !streams.is_empty());
-
-        let sender = std::sync::Arc::new(tokio::sync::Mutex::new(SenderRaw {sinks: sinks.clone()}));
-        set_profile(&self.keypair, sender.clone(), self.profile.name.clone(), self.profile.about.clone(), self.profile.picture_url.clone()).await;
+    )  {
+        set_profile(&self.keypair, self.sender.clone(), self.profile.name.clone(), self.profile.about.clone(), self.profile.picture_url.clone()).await;
 
         let (main_bot_tx, main_bot_rx) = tokio::sync::mpsc::channel::<nostr::Message>(64);
 
         let keypair = self.keypair;
-        for (id, stream) in streams.into_iter().enumerate() {
-            let sink = sinks[id].clone();
-            let main_bot_tx = main_bot_tx.clone();
-            tokio::spawn(async move {
-                listen_relay(stream, sink, main_bot_tx, keypair).await;
-            });
+        let sinks = self.sender.lock().await.sinks.clone();
+
+        let streams = self.streams.take();
+        if let Some(streams) = streams {
+            for (id, stream) in streams.into_iter().enumerate() {
+                let sink = sinks[id].clone();
+                let main_bot_tx = main_bot_tx.clone();
+                tokio::spawn(async move {
+                    listen_relay(stream, sink, main_bot_tx, keypair).await;
+                });
+
+            }
         }
 
         if let Some(message) = &self.profile.intro_message {
@@ -159,13 +175,11 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
             );
 
             info!("main bot is sending message \"{}\"", message);
-            sender.lock().await.send(welcome.format()).await;
+            self.sender.lock().await.send(welcome.format()).await;
         };
 
         let commands = self.commands.clone();
-        tokio::spawn(async move {
-            main_bot_listener(state.clone(), sender, main_bot_rx, &keypair, commands).await;
-        })
+        main_bot_listener(state.clone(), self.sender.clone(), main_bot_rx, &keypair, commands).await
     }
 }
 

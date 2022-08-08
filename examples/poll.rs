@@ -128,16 +128,27 @@ async fn main() {
     // };
 
     let pic_url = "https://thumbs.dreamstime.com/z/poll-survey-results-voting-election-opinion-word-red-d-letters-pie-chart-to-illustrate-opinions-61587174.jpg";
-    let bot = nostr_bot::Bot::<State>::new(keypair, config.relays, network)
+    let mut bot = nostr_bot::Bot::<State>::new(keypair, config.relays, network)
         .set_name("poll_bot")
         .set_about("Just a bot.")
         .set_picture(pic_url)
         .set_intro_message(&question)
-        .add_command("results", Box::new(results))
-        .add_command("yes", Box::new(yes))
+        // .add_command("results", Box::new(results))
+        // .add_command("yes", Box::new(yes))
         .add_command("no", Box::new(no));
+
+    // let sender = bot.get_sender();
 
     // let commands = get_commands::<(u64,u64)>(state.clone());
     info!("Starting bot");
+    bot.connect().await;
+    let sender = bot.get_sender();
+    sender.lock().await.send(nostr_bot::nostr::EventNonSigned {
+        created_at: nostr_bot::utils::unix_timestamp(),
+        kind: 1,
+        content: "Just tesing here".to_string(),
+        tags: vec![],
+    }.sign(&keypair).format()).await;
+
     bot.run(state).await;
 }
