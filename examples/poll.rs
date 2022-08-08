@@ -98,11 +98,6 @@ fn results(
     nostr_bot::nostr::format_reply(event, format_results(&votes.question, &votes))
 }
 
-// fn bla(event: nostr_bot::nostr::Event, _state: nostr_bot::State<Votes>) -> nostr_bot::nostr::EventNonSigned {
-// let msg = event.content.clone();
-// nostr_bot::nostr::format_reply(event, format!("Congrats for saying {}", msg))
-// }
-
 #[tokio::main]
 async fn main() {
     nostr_bot::init_logger();
@@ -122,6 +117,14 @@ async fn main() {
 
     type State = nostr_bot::State<Votes>;
     let state = nostr_bot::wrap(Votes::from_file(question.clone(), "votes".to_string()));
+    let smt = "Blabla ok no".to_string();
+
+    // let bla = move |event: nostr_bot::nostr::Event,
+               // _state: nostr_bot::State<Votes>|
+     // -> nostr_bot::nostr::EventNonSigned {
+        // let msg = event.content.clone();
+        // nostr_bot::nostr::format_reply(event, format!("Congrats for saying {}. {}", msg, smt))
+    // };
 
     let pic_url = "https://thumbs.dreamstime.com/z/poll-survey-results-voting-election-opinion-word-red-d-letters-pie-chart-to-illustrate-opinions-61587174.jpg";
     let bot = nostr_bot::Bot::<State>::new(keypair, config.relays, network)
@@ -129,10 +132,9 @@ async fn main() {
         .set_about("Just a bot.")
         .set_picture(pic_url)
         .set_intro_message(&question)
-        .add_command("results", &results)
-        .add_command("yes", &yes)
-        .add_command("no", &no);
-    // .add_command("", &bla);
+        .add_command("results", Box::new(results))
+        .add_command("yes", Box::new(yes))
+        .add_command("no", Box::new(no));
 
     // let commands = get_commands::<(u64,u64)>(state.clone());
     info!("Starting bot");

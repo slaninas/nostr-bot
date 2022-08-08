@@ -10,11 +10,11 @@ pub mod utils;
 type NostrMessageReceiver = tokio::sync::mpsc::Receiver<nostr::Message>;
 type NostrMessageSender = tokio::sync::mpsc::Sender<nostr::Message>;
 
-pub type ClosureRaw<State> =dyn Fn(nostr::Event, State) -> nostr::EventNonSigned + Send + Sync;
-pub type Closure<State> = Box<ClosureRaw<State>>;
+pub type FunctorRaw<State> =dyn Fn(nostr::Event, State) -> nostr::EventNonSigned + Send + Sync;
+pub type Functor<State> = Box<FunctorRaw<State>>;
 
 pub type Commands<State> =
-    std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Closure<State>>>>;
+    std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Functor<State>>>>;
 
 pub type State<T> = std::sync::Arc<std::sync::Mutex<T>>;
 
@@ -59,12 +59,12 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         }
     }
 
-    pub fn add_command(mut self, command: &str, cl: &'static ClosureRaw<State>) -> Self {
+    pub fn add_command(mut self, command: &str, cl: Functor<State>) -> Self {
         match self
             .commands
             .lock()
             .unwrap()
-            .insert(command.to_string(), Box::new(cl))
+            .insert(command.to_string(), cl)
         {
             Some(_) => panic!("Failed to add command {}", command),
             None => {}
@@ -156,7 +156,7 @@ async fn main_bot_listener<State: Clone + Sync + Send>(
         std::sync::Mutex<
             std::collections::HashMap<
                 String,
-                Closure<State>,
+                Functor<State>,
             >,
         >,
     >,
