@@ -1,4 +1,3 @@
-use futures_util::Future;
 use futures_util::SinkExt;
 use futures_util::StreamExt;
 use log::{debug, info, warn};
@@ -12,7 +11,7 @@ pub mod utils;
 type NostrMessageReceiver = tokio::sync::mpsc::Receiver<nostr::Message>;
 type NostrMessageSender = tokio::sync::mpsc::Sender<nostr::Message>;
 
-pub type FunctorRaw<State> = dyn Fn(nostr::Event, State) -> nostr::EventNonSigned + Send + Sync;
+pub type FunctorRaw<State> = dyn Fn(nostr::Event, State) -> std::pin::Pin<Box<dyn std::future::Future<Output = nostr::EventNonSigned>>>;
 pub type Functor<State> = Box<FunctorRaw<State>>;
 
 pub type Commands<State> =
@@ -36,6 +35,12 @@ impl SenderRaw {
         self.sinks.push(sink);
     }
 }
+
+#[macro_export]
+macro_rules! wrap {
+    ($x:expr) => (Box::new(|event, state| Box::pin($x(event, state))))
+}
+
 
 struct Profile {
     name: Option<String>,
@@ -240,12 +245,15 @@ async fn main_bot_listener<State: Clone + Sync + Send>(
             };
 
             match command {
-                Some(command) => Some((command)(message.content, state.clone())),
+                Some(command) => {
+                    Some((command)(message.content, state.clone()).await)
+                }
                 None => None,
             }
         };
 
         if let Some(response) = response {
+        let response = response;
             sender
                 .lock()
                 .await

@@ -73,7 +73,7 @@ fn format_results(question: &str, votes: &Votes) -> String {
     )
 }
 
-fn yes(
+async fn yes(
     event: nostr_bot::nostr::Event,
     state: nostr_bot::State<Votes>,
 ) -> nostr_bot::nostr::EventNonSigned {
@@ -82,7 +82,7 @@ fn yes(
     nostr_bot::nostr::format_reply(event, format_results(&votes.question, &votes))
 }
 
-fn no(
+async fn no(
     event: nostr_bot::nostr::Event,
     state: nostr_bot::State<Votes>,
 ) -> nostr_bot::nostr::EventNonSigned {
@@ -91,7 +91,7 @@ fn no(
     nostr_bot::nostr::format_reply(event, format_results(&votes.question, &votes))
 }
 
-fn results(
+async fn results(
     event: nostr_bot::nostr::Event,
     state: nostr_bot::State<Votes>,
 ) -> nostr_bot::nostr::EventNonSigned {
@@ -133,9 +133,9 @@ async fn main() {
         .set_about("Just a bot.")
         .set_picture(pic_url)
         .set_intro_message(&question)
-        // .add_command("results", Box::new(results))
-        // .add_command("yes", Box::new(yes))
-        .add_command("no", Box::new(no));
+        .add_command("results", nostr_bot::wrap!(results))
+        .add_command("yes", nostr_bot::wrap!(yes))
+        .add_command("no", nostr_bot::wrap!(no));
 
     // let sender = bot.get_sender();
 
