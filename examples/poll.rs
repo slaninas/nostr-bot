@@ -20,19 +20,20 @@ impl Votes {
                     no: s[1].parse::<u64>().unwrap(),
                     filename,
                 }
-            },
+            }
 
             Err(e) => {
-                warn!("Unable to open file {}: {}. Using zero values.", filename, e);
+                warn!(
+                    "Unable to open file {}: {}. Using zero values.",
+                    filename, e
+                );
                 Self {
                     question,
                     yes: 0,
                     no: 0,
                     filename,
                 }
-
             }
-
         }
     }
 
