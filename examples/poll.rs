@@ -1,60 +1,7 @@
-use log::warn;
-use std::io::Write;
-
 struct Votes {
     question: String,
     yes: u64,
     no: u64,
-    filename: String,
-}
-
-impl Votes {
-    fn from_file(question: String, filename: String) -> Self {
-        match std::fs::read_to_string(&filename) {
-            Ok(s) => {
-                let s = s.split(":").collect::<Vec<_>>();
-
-                Self {
-                    question,
-                    yes: s[0].parse::<u64>().unwrap(),
-                    no: s[1].parse::<u64>().unwrap(),
-                    filename,
-                }
-            }
-
-            Err(e) => {
-                warn!(
-                    "Unable to open file {}: {}. Using zero values.",
-                    filename, e
-                );
-                Self {
-                    question,
-                    yes: 0,
-                    no: 0,
-                    filename,
-                }
-            }
-        }
-    }
-
-    fn add_yes(&mut self) {
-        self.yes += 1;
-        self.update_file();
-    }
-
-    fn add_no(&mut self) {
-        self.no += 1;
-        self.update_file();
-    }
-
-    fn update_file(&self) {
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .create(true)
-            .open(&self.filename)
-            .unwrap();
-        write!(file, "{}:{}", self.yes, self.no).unwrap();
-    }
 }
 
 fn format_results(question: &str, votes: &Votes) -> String {
@@ -78,7 +25,7 @@ async fn yes(
     state: nostr_bot::State<Votes>,
 ) -> nostr_bot::nostr::EventNonSigned {
     let mut votes = state.lock().unwrap();
-    votes.add_yes();
+    votes.yes += 1;
     nostr_bot::nostr::format_reply(event, format_results(&votes.question, &votes))
 }
 
@@ -87,7 +34,7 @@ async fn no(
     state: nostr_bot::State<Votes>,
 ) -> nostr_bot::nostr::EventNonSigned {
     let mut votes = state.lock().unwrap();
-    votes.add_no();
+    votes.no += 1;
     nostr_bot::nostr::format_reply(event, format_results(&votes.question, &votes))
 }
 
@@ -115,11 +62,14 @@ async fn main() {
     let secp = secp256k1::Secp256k1::new();
     let keypair = secp256k1::KeyPair::from_seckey_str(&secp, &secret).unwrap();
 
-    let question = "Do you think Pluto should be a planet?".to_string();
+    let question = String::from("Do you think Pluto should be a planet?");
 
     type State = nostr_bot::State<Votes>;
-    let shared_state =
-        nostr_bot::wrap_state(Votes::from_file(question.clone(), "votes".to_string()));
+    let shared_state = nostr_bot::wrap_state(Votes {
+        question: question.clone(),
+        yes: 0,
+        no: 0,
+    });
 
     let pic_url = "https://thumbs.dreamstime.com/z/poll-survey-results-voting-election-opinion-word-red-d-letters-pie-chart-to-illustrate-opinions-61587174.jpg";
     let mut bot =
