@@ -1,3 +1,6 @@
+// Simple example of voting bot that reacts to 'yes', 'no' and 'results' commands.
+use nostr_bot::{nostr::{Event, EventNonSigned, format_reply}, State, wrap};
+
 struct Votes {
     question: String,
     yes: u64,
@@ -21,29 +24,29 @@ fn format_results(question: &str, votes: &Votes) -> String {
 }
 
 async fn yes(
-    event: nostr_bot::nostr::Event,
-    state: nostr_bot::State<Votes>,
-) -> nostr_bot::nostr::EventNonSigned {
+    event: Event,
+    state: State<Votes>,
+) -> EventNonSigned {
     let mut votes = state.lock().unwrap();
     votes.yes += 1;
-    nostr_bot::nostr::format_reply(event, format_results(&votes.question, &votes))
+    format_reply(event, format_results(&votes.question, &votes))
 }
 
 async fn no(
-    event: nostr_bot::nostr::Event,
-    state: nostr_bot::State<Votes>,
-) -> nostr_bot::nostr::EventNonSigned {
+    event: Event,
+    state: State<Votes>,
+) -> EventNonSigned {
     let mut votes = state.lock().unwrap();
     votes.no += 1;
-    nostr_bot::nostr::format_reply(event, format_results(&votes.question, &votes))
+    format_reply(event, format_results(&votes.question, &votes))
 }
 
 async fn results(
-    event: nostr_bot::nostr::Event,
-    state: nostr_bot::State<Votes>,
-) -> nostr_bot::nostr::EventNonSigned {
+    event: Event,
+    state: State<Votes>,
+) -> EventNonSigned {
     let votes = state.lock().unwrap();
-    nostr_bot::nostr::format_reply(event, format_results(&votes.question, &votes))
+    format_reply(event, format_results(&votes.question, &votes))
 }
 
 #[tokio::main]
@@ -78,8 +81,8 @@ async fn main() {
             .set_about("Just a bot.")
             .set_picture(pic_url)
             .set_intro_message(&question)
-            .add_command("results", nostr_bot::wrap!(results))
-            .add_command("yes", nostr_bot::wrap!(yes))
-            .add_command("no", nostr_bot::wrap!(no));
+            .add_command("results", wrap!(results))
+            .add_command("yes", wrap!(yes))
+            .add_command("no", wrap!(no));
     bot.run(shared_state).await;
 }
