@@ -20,7 +20,7 @@ pub struct EventNonSigned {
 
 impl EventNonSigned {
     pub fn sign(self, keypair: &secp256k1::KeyPair) -> Event {
-        Event::new(keypair, self.created_at, 1, self.tags, self.content)
+        Event::new(keypair, self.created_at, self.kind, self.tags, self.content)
     }
 }
 
@@ -43,6 +43,8 @@ impl Event {
         tags: Vec<Vec<String>>,
         content: String,
     ) -> Self {
+        let content = escape(content);
+
         let secp = Secp256k1::new();
 
         let (pubkey, _parity) = keypair.x_only_public_key();
@@ -79,7 +81,7 @@ impl Event {
             self.created_at,
             self.kind,
             Self::format_tags(&self.tags),
-            self.content,
+            &self.content,
             self.sig
         )
     }
@@ -123,6 +125,36 @@ pub fn get_tags_for_reply(event: Event) -> Vec<Vec<String>> {
     tags
 }
 
+pub fn get_profile_event(name: Option<String>, about: Option<String>, picture_url: Option<String>) -> EventNonSigned {
+    let name = if let Some(name) = name {
+        name
+    } else {
+        "".to_string()
+    };
+    let about = if let Some(about) = about {
+        about
+    } else {
+        "".to_string()
+    };
+    let picture_url = if let Some(picture_url) = picture_url {
+        picture_url
+    } else {
+        "".to_string()
+    };
+
+    EventNonSigned{
+        created_at: crate::utils::unix_timestamp(),
+        kind: 0,
+        tags: vec![],
+        content: format!(
+            r#"{{"name":"{}","about":"{}","picture":"{}"}}"#,
+            name,
+            escape(about),
+            escape(picture_url)
+        ),
+    }
+}
+
 pub fn format_reply(reply_to: Event, content: String) -> EventNonSigned {
     EventNonSigned {
         content: content,
@@ -130,4 +162,21 @@ pub fn format_reply(reply_to: Event, content: String) -> EventNonSigned {
         kind: 1,
         tags: get_tags_for_reply(reply_to),
     }
+}
+
+fn escape(text: String) -> String {
+    // See https://github.com/jb55/nostril/blob/master/nostril.c
+    let mut escaped = String::new();
+    for c in text.chars() {
+        match c {
+            '"' => escaped.push_str("\\\""),
+            '\\' => escaped.push_str("\\\\"),
+            '\n' => escaped.push_str("\\n"),
+            '\r' => escaped.push_str("\\r"),
+            '\t' => escaped.push_str("\\t"),
+            _ => escaped.push(c),
+        }
+    }
+
+    escaped
 }

@@ -133,39 +133,13 @@ pub async fn set_profile(
     about: Option<String>,
     picture_url: Option<String>,
 ) {
-    let name = if let Some(name) = name {
-        name
-    } else {
-        "".to_string()
-    };
-    let about = if let Some(about) = about {
-        about
-    } else {
-        "".to_string()
-    };
-    let picture_url = if let Some(picture_url) = picture_url {
-        picture_url
-    } else {
-        "".to_string()
-    };
-
     info!(
-        "main bot is settings name: \"{}\", about: \"{}\", picture_url: \"{}\"",
+        "main bot is settings name: \"{:?}\", about: \"{:?}\", picture_url: \"{:?}\"",
         name, about, picture_url
     );
 
     // Set profile
-    let message = nostr::Event::new(
-        keypair,
-        utils::unix_timestamp(),
-        0,
-        vec![],
-        format!(
-            r#"{{\"name\":\"{}\",\"about\":\"{}\",\"picture\":\"{}\"}}"#,
-            name, about, picture_url
-        ),
-    )
-    .format();
+    let message = nostr::get_profile_event(name, about, picture_url).sign(keypair).format();
 
     sender.lock().await.send(message).await;
 }
