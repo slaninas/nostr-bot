@@ -24,19 +24,19 @@ fn format_results(question: &str, votes: &Votes) -> String {
 }
 
 async fn yes(event: Event, state: State<Votes>) -> EventNonSigned {
-    let mut votes = state.lock().unwrap();
+    let mut votes = state.lock().await;
     votes.yes += 1;
     format_reply(event, format_results(&votes.question, &votes))
 }
 
 async fn no(event: Event, state: State<Votes>) -> EventNonSigned {
-    let mut votes = state.lock().unwrap();
+    let mut votes = state.lock().await;
     votes.no += 1;
     format_reply(event, format_results(&votes.question, &votes))
 }
 
 async fn results(event: Event, state: State<Votes>) -> EventNonSigned {
-    let votes = state.lock().unwrap();
+    let votes = state.lock().await;
     format_reply(event, format_results(&votes.question, &votes))
 }
 
