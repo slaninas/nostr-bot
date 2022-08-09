@@ -1,5 +1,5 @@
 // Simple example of voting bot that reacts to 'yes', 'no' and 'results' commands.
-use nostr_bot::{nostr::{Event, EventNonSigned, format_reply}, State, wrap};
+use nostr_bot::{format_reply, wrap, Event, EventNonSigned, Network, State};
 
 struct Votes {
     question: String,
@@ -23,28 +23,19 @@ fn format_results(question: &str, votes: &Votes) -> String {
     )
 }
 
-async fn yes(
-    event: Event,
-    state: State<Votes>,
-) -> EventNonSigned {
+async fn yes(event: Event, state: State<Votes>) -> EventNonSigned {
     let mut votes = state.lock().unwrap();
     votes.yes += 1;
     format_reply(event, format_results(&votes.question, &votes))
 }
 
-async fn no(
-    event: Event,
-    state: State<Votes>,
-) -> EventNonSigned {
+async fn no(event: Event, state: State<Votes>) -> EventNonSigned {
     let mut votes = state.lock().unwrap();
     votes.no += 1;
     format_reply(event, format_results(&votes.question, &votes))
 }
 
-async fn results(
-    event: Event,
-    state: State<Votes>,
-) -> EventNonSigned {
+async fn results(event: Event, state: State<Votes>) -> EventNonSigned {
     let votes = state.lock().unwrap();
     format_reply(event, format_results(&votes.question, &votes))
 }
@@ -75,14 +66,13 @@ async fn main() {
     });
 
     let pic_url = "https://thumbs.dreamstime.com/z/poll-survey-results-voting-election-opinion-word-red-d-letters-pie-chart-to-illustrate-opinions-61587174.jpg";
-    let mut bot =
-        nostr_bot::Bot::<State>::new(keypair, relays, nostr_bot::network::Network::Clearnet)
-            .set_name("poll_bot")
-            .set_about("Just a bot.")
-            .set_picture(pic_url)
-            .set_intro_message(&question)
-            .add_command("results", wrap!(results))
-            .add_command("yes", wrap!(yes))
-            .add_command("no", wrap!(no));
+    let mut bot = nostr_bot::Bot::<State>::new(keypair, relays, Network::Clearnet)
+        .set_name("poll_bot")
+        .set_about("Just a bot.")
+        .set_picture(pic_url)
+        .set_intro_message(&question)
+        .add_command("results", wrap!(results))
+        .add_command("yes", wrap!(yes))
+        .add_command("no", wrap!(no));
     bot.run(shared_state).await;
 }

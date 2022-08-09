@@ -3,9 +3,13 @@ use log::{debug, info, warn};
 
 use rand::Rng;
 
-pub mod network;
-pub mod nostr;
-pub mod utils;
+mod network;
+mod nostr;
+mod utils;
+
+pub use nostr::{Event, EventNonSigned, format_reply};
+pub use network::Network;
+
 
 type NostrMessageReceiver = tokio::sync::mpsc::Receiver<nostr::Message>;
 type NostrMessageSender = tokio::sync::mpsc::Sender<nostr::Message>;
