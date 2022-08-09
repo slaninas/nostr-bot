@@ -1,5 +1,5 @@
 // Simple example of voting bot that reacts to 'yes', 'no' and 'results' commands.
-use nostr_bot::{format_reply, wrap, Event, EventNonSigned, Network, State};
+use nostr_bot::{format_reply, wrap, Command, Event, EventNonSigned, Network, State};
 
 struct Votes {
     question: String,
@@ -40,6 +40,17 @@ async fn results(event: Event, state: State<Votes>) -> EventNonSigned {
     format_reply(event, format_results(&votes.question, &votes))
 }
 
+async fn rest(event: Event, _state: State<Votes>) -> EventNonSigned {
+    let content = event.content.clone();
+    format_reply(
+        event,
+        format!(
+            "You said '{}', that's nice but it's not a command, try !help.",
+            content
+        ),
+    )
+}
+
 #[tokio::main]
 async fn main() {
     nostr_bot::init_logger();
@@ -71,8 +82,9 @@ async fn main() {
         .set_about("Just a bot.")
         .set_picture(pic_url)
         .set_intro_message(&question)
-        .add_command("results", wrap!(results))
-        .add_command("yes", wrap!(yes))
-        .add_command("no", wrap!(no));
+        .command(Command::new("!results", wrap!(results)).desc("Show voting results."))
+        .command(Command::new("!yes", wrap!(yes)).desc("Add one 'yes' vote"))
+        .command(Command::new("!no", wrap!(no)).desc("Add one 'no' vote"))
+        .command(Command::new("", wrap!(rest)).desc("Special command that catches rest of the replies."));
     bot.run(shared_state).await;
 }

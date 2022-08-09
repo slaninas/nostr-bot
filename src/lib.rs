@@ -5,7 +5,7 @@ mod network;
 mod nostr;
 mod utils;
 
-pub use bot::Functor;
+pub use bot::{Command, Commands, Functor};
 pub use network::Network;
 pub use nostr::{format_reply, Event, EventNonSigned};
 
@@ -16,9 +16,6 @@ pub type FunctorRaw<State> =
         nostr::Event,
         State,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = nostr::EventNonSigned>>>;
-
-pub type Commands<State> =
-    std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Functor<State>>>>;
 
 pub type State<T> = std::sync::Arc<tokio::sync::Mutex<T>>;
 
@@ -51,7 +48,7 @@ impl<State: Clone + Send + Sync> Bot<State> {
             keypair,
             relays,
             network_type,
-            commands: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashMap::new())),
+            commands: std::sync::Arc::new(std::sync::Mutex::new(vec![])),
             profile: Profile::new(),
 
             sender: std::sync::Arc::new(tokio::sync::Mutex::new(SenderRaw { sinks: vec![] })),
@@ -59,16 +56,11 @@ impl<State: Clone + Send + Sync> Bot<State> {
         }
     }
 
-    pub fn add_command(self, command: &str, cl: Functor<State>) -> Self {
-        match self
-            .commands
+    pub fn command(self, command: Command<State>) -> Self {
+            self.commands
             .lock()
             .unwrap()
-            .insert(command.to_string(), cl)
-        {
-            Some(_) => panic!("Failed to add command {}", command),
-            None => {}
-        }
+            .push(command);
         self
     }
 

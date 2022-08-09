@@ -5,6 +5,36 @@ use rand::Rng;
 use crate::Bot;
 use crate::{network, nostr, utils};
 
+pub type FunctorRaw<State> =
+    dyn Fn(
+        nostr::Event,
+        State,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = nostr::EventNonSigned>>>;
+pub type Functor<State> = Box<FunctorRaw<State>>;
+
+pub struct Command<State: Clone + Send + Sync> {
+    pub prefix: String,
+    pub description: Option<String>,
+    pub functor: Functor<State>,
+}
+
+impl<State: Clone + Send + Sync> Command<State> {
+    pub fn new(prefix: &str, functor: Functor<State>) -> Self {
+        Self {
+            prefix: prefix.to_string(),
+            description: None,
+            functor,
+        }
+    }
+
+    pub fn desc(mut self, description: &str) -> Self {
+        self.description = Some(description.to_string());
+        self
+    }
+}
+
+pub type Commands<State> = std::sync::Arc<std::sync::Mutex<Vec<Command<State>>>>;
+
 // Implementation of internal Bot methods
 impl<State: Clone + Send + Sync> Bot<State> {
     pub(super) async fn really_run(&mut self, state: State) {
@@ -61,13 +91,6 @@ impl<State: Clone + Send + Sync> Bot<State> {
 
 type NostrMessageReceiver = tokio::sync::mpsc::Receiver<nostr::Message>;
 type NostrMessageSender = tokio::sync::mpsc::Sender<nostr::Message>;
-
-pub type FunctorRaw<State> =
-    dyn Fn(
-        nostr::Event,
-        State,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = nostr::EventNonSigned>>>;
-pub type Functor<State> = Box<FunctorRaw<State>>;
 
 pub struct Profile {
     pub name: Option<String>,
@@ -220,7 +243,7 @@ pub async fn main_bot_listener<State: Clone + Sync + Send>(
     sender: Sender,
     mut rx: NostrMessageReceiver,
     keypair: &secp256k1::KeyPair,
-    commands: std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String, Functor<State>>>>,
+    commands: Commands<State>,
 ) {
     let mut handled_events = std::collections::HashSet::new();
 
@@ -246,27 +269,53 @@ pub async fn main_bot_listener<State: Clone + Sync + Send>(
         let response = {
             let commands = commands.lock().unwrap();
 
-            let command = match commands.get(command_part) {
-                Some(func) => Some(func),
-                None => {
-                    debug!("Command {} not found. Looking for fallback.", command_part);
+            // let command = match commands.get(command_part) {
+            // Some(func) => Some(func),
+            // None => {
+            // debug!("Command {} not found. Looking for fallback.", command_part);
 
-                    match commands.get("") {
-                        Some(func) => {
-                            debug!("Fount fallback command");
-                            Some(func)
-                        }
-                        None => {
-                            warn!("No command {} found", command_part);
-                            None
-                        }
-                    }
+            // match commands.get("") {
+            // Some(func) => {
+            // debug!("Found fallback command");
+            // Some(func)
+            // }
+            // None => {
+            // warn!("No command {} found", command_part);
+            // None
+            // }
+            // }
+            // }
+            // };
+
+            // match command {
+            // Some(command) => Some((command.1)(message.content, state.clone()).await),
+            // None => None,
+            // }
+            let mut fallthrough_command = None;
+            let mut functor = None;
+
+            for command in commands.iter() {
+                if command.prefix == "" {
+                    fallthrough_command = Some(&command.functor);
+                    continue;
                 }
-            };
 
-            match command {
-                Some(command) => Some((command)(message.content, state.clone()).await),
-                None => None,
+                if command_part.starts_with(&command.prefix) {
+                    functor = Some(&command.functor);
+                }
+            }
+
+            if let Some(functor) = functor {
+                debug!("Found functor to run, going to run it.");
+                Some((functor)(message.content, state.clone()).await)
+            } else {
+                if let Some(fallthrough_command) = fallthrough_command {
+                    debug!("Going to call fallthrough command \"\".");
+                    Some((fallthrough_command)(message.content, state.clone()).await)
+                } else {
+                    debug!("Didn't find command >{}<, ignoring.", command_part);
+                    None
+                }
             }
         };
 
