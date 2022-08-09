@@ -1,5 +1,5 @@
 // Simple example of voting bot that reacts to 'yes', 'no' and 'results' commands.
-use nostr_bot::{format_reply, wrap, Command, Event, EventNonSigned, Network, State};
+use nostr_bot::{format_reply, wrap, wrap_extra, Command, Event, EventNonSigned, Network, State, FunctorType};
 
 struct Votes {
     question: String,
@@ -83,8 +83,9 @@ async fn main() {
         .set_picture(pic_url)
         .set_intro_message(&question)
         .command(Command::new("!results", wrap!(results)).desc("Show voting results."))
-        .command(Command::new("!yes", wrap!(yes)).desc("Add one 'yes' vote"))
-        .command(Command::new("!no", wrap!(no)).desc("Add one 'no' vote"))
-        .command(Command::new("", wrap!(rest)).desc("Special command that catches rest of the replies."));
+        .command(Command::new("!yes", wrap!(yes)).desc("Add one 'yes' vote."))
+        .command(Command::new("!no", wrap!(no)).desc("Add one 'no' vote."))
+        .command(Command::new("", wrap!(rest)).desc("Special command that is run when no other command matches."))
+        .help();
     bot.run(shared_state).await;
 }

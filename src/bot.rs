@@ -12,14 +12,27 @@ pub type FunctorRaw<State> =
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = nostr::EventNonSigned>>>;
 pub type Functor<State> = Box<FunctorRaw<State>>;
 
+pub type FunctorExtraRaw<State> =
+    dyn Fn(
+        nostr::Event,
+        State,
+        BotInfo,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = nostr::EventNonSigned>>>;
+pub type FunctorExtra<State> = Box<FunctorExtraRaw<State>>;
+
+pub enum FunctorType<State> {
+    Basic(Functor<State>),
+    Extra(FunctorExtra<State>),
+}
+
 pub struct Command<State: Clone + Send + Sync> {
     pub prefix: String,
     pub description: Option<String>,
-    pub functor: Functor<State>,
+    pub functor: FunctorType<State>,
 }
 
 impl<State: Clone + Send + Sync> Command<State> {
-    pub fn new(prefix: &str, functor: Functor<State>) -> Self {
+    pub fn new(prefix: &str, functor: FunctorType<State>) -> Self {
         Self {
             prefix: prefix.to_string(),
             description: None,
@@ -78,7 +91,7 @@ impl<State: Clone + Send + Sync> Bot<State> {
         };
 
         let commands = self.commands.clone();
-        main_bot_listener(
+        self.main_bot_listener(
             state.clone(),
             self.sender.clone(),
             main_bot_rx,
@@ -87,6 +100,122 @@ impl<State: Clone + Send + Sync> Bot<State> {
         )
         .await
     }
+
+    pub async fn main_bot_listener(
+        &self,
+        state: State,
+        sender: Sender,
+        mut rx: NostrMessageReceiver,
+        keypair: &secp256k1::KeyPair,
+        commands: Commands<State>,
+    ) {
+        let mut handled_events = std::collections::HashSet::new();
+
+        info!("Main bot listener started.");
+        while let Some(message) = rx.recv().await {
+            let event_id = message.content.id.clone();
+            if handled_events.contains(&event_id) {
+                debug!("Event with id={} already handled, ignoring.", event_id);
+                continue;
+            }
+
+            handled_events.insert(event_id);
+
+            debug!("Handling {}", message.content.format());
+
+            let bot_info = BotInfo {
+                help: self.generate_help(),
+            };
+
+            let command = message.content.content.clone();
+            let words = command.split_whitespace().collect::<Vec<_>>();
+            if words.len() == 0 {
+                continue;
+            }
+            let command_part = words[0];
+
+            let response = {
+                let mut fallthrough_command = None;
+                let mut functor = None;
+
+                let commands = commands.lock().unwrap();
+
+                for command in commands.iter() {
+                    if command.prefix == "" {
+                        fallthrough_command = Some(&command.functor);
+                        continue;
+                    }
+
+                    if command_part.starts_with(&command.prefix) {
+                        functor = Some(&command.functor);
+                    }
+                }
+
+                let functor_to_call = if let Some(functor) = functor {
+                    debug!("Found functor to run, going to run it.");
+                    Some(functor)
+                } else {
+                    if let Some(fallthrough_command) = fallthrough_command {
+                        debug!("Going to call fallthrough command \"\".");
+                        Some(fallthrough_command)
+                    } else {
+                        debug!("Didn't find command >{}<, ignoring.", command_part);
+                        None
+                    }
+                };
+
+                if let Some(functor) = functor_to_call {
+                    match functor {
+                        FunctorType::Basic(functor) => {
+                            Some((functor)(message.content, state.clone()).await)
+                        }
+                        FunctorType::Extra(functor) => {
+                            Some((functor)(message.content, state.clone(), bot_info).await)
+                        }
+                    }
+                } else {
+                    None
+                }
+            };
+
+            if let Some(response) = response {
+                let response = response;
+                sender
+                    .lock()
+                    .await
+                    .send(response.sign(keypair).format())
+                    .await;
+            }
+        }
+    }
+
+    fn generate_help(&self) -> String {
+        let mut help = match self.profile.about.clone() {
+            Some(about) => about,
+            None => String::new(),
+        };
+
+        help.push_str("\n\nAvailable commands:\n");
+        let commands = self.commands.lock().unwrap();
+        for command in commands.iter() {
+            let description = match &command.description {
+                Some(description) => description,
+                None => "",
+            };
+            let prefix = if command.prefix.len() > 0 {
+                command.prefix.clone()
+            } else {
+                "\"\"".to_string()
+            };
+            help.push_str(&format!("{}...{}\n", prefix, description));
+        }
+
+        help
+    }
+}
+
+pub struct BotInfo {
+    help: String,
 }
 
 type NostrMessageReceiver = tokio::sync::mpsc::Receiver<nostr::Message>;
@@ -139,7 +268,9 @@ pub async fn set_profile(
     );
 
     // Set profile
-    let message = nostr::get_profile_event(name, about, picture_url).sign(keypair).format();
+    let message = nostr::get_profile_event(name, about, picture_url)
+        .sign(keypair)
+        .format();
 
     sender.lock().await.send(message).await;
 }
@@ -212,98 +343,6 @@ async fn relay_listener(
     }
 }
 
-pub async fn main_bot_listener<State: Clone + Sync + Send>(
-    state: State,
-    sender: Sender,
-    mut rx: NostrMessageReceiver,
-    keypair: &secp256k1::KeyPair,
-    commands: Commands<State>,
-) {
-    let mut handled_events = std::collections::HashSet::new();
-
-    info!("Main bot listener started.");
-    while let Some(message) = rx.recv().await {
-        let event_id = message.content.id.clone();
-        if handled_events.contains(&event_id) {
-            debug!("Event with id={} already handled, ignoring.", event_id);
-            continue;
-        }
-
-        handled_events.insert(event_id);
-
-        debug!("Handling {}", message.content.format());
-
-        let command = message.content.content.clone();
-        let words = command.split_whitespace().collect::<Vec<_>>();
-        if words.len() == 0 {
-            continue;
-        }
-        let command_part = words[0];
-
-        let response = {
-            let commands = commands.lock().unwrap();
-
-            // let command = match commands.get(command_part) {
-            // Some(func) => Some(func),
-            // None => {
-            // debug!("Command {} not found. Looking for fallback.", command_part);
-
-            // match commands.get("") {
-            // Some(func) => {
-            // debug!("Found fallback command");
-            // Some(func)
-            // }
-            // None => {
-            // warn!("No command {} found", command_part);
-            // None
-            // }
-            // }
-            // }
-            // };
-
-            // match command {
-            // Some(command) => Some((command.1)(message.content, state.clone()).await),
-            // None => None,
-            // }
-            let mut fallthrough_command = None;
-            let mut functor = None;
-
-            for command in commands.iter() {
-                if command.prefix == "" {
-                    fallthrough_command = Some(&command.functor);
-                    continue;
-                }
-
-                if command_part.starts_with(&command.prefix) {
-                    functor = Some(&command.functor);
-                }
-            }
-
-            if let Some(functor) = functor {
-                debug!("Found functor to run, going to run it.");
-                Some((functor)(message.content, state.clone()).await)
-            } else {
-                if let Some(fallthrough_command) = fallthrough_command {
-                    debug!("Going to call fallthrough command \"\".");
-                    Some((fallthrough_command)(message.content, state.clone()).await)
-                } else {
-                    debug!("Didn't find command >{}<, ignoring.", command_part);
-                    None
-                }
-            }
-        };
-
-        if let Some(response) = response {
-            let response = response;
-            sender
-                .lock()
-                .await
-                .send(response.sign(keypair).format())
-                .await;
-        }
-    }
-}
-
 async fn listen_relay(
     stream: network::Stream,
     sink: network::Sink,
@@ -346,4 +385,12 @@ async fn listen_relay(
             }
         }
     }
+}
+
+pub async fn help_command<State>(
+    event: nostr::Event,
+    _state: State,
+    bot_info: BotInfo,
+) -> nostr::EventNonSigned {
+    nostr::format_reply(event, bot_info.help)
 }

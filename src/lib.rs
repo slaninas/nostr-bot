@@ -5,7 +5,7 @@ mod network;
 mod nostr;
 mod utils;
 
-pub use bot::{Command, Commands, Functor};
+pub use bot::{Command, Commands, Functor, help_command};
 pub use network::Network;
 pub use nostr::{format_reply, Event, EventNonSigned};
 
@@ -19,10 +19,19 @@ pub type FunctorRaw<State> =
 
 pub type State<T> = std::sync::Arc<tokio::sync::Mutex<T>>;
 
+pub use bot::FunctorType;
+
 #[macro_export]
 macro_rules! wrap {
-    ($x:expr) => {
-        Box::new(|event, state| Box::pin($x(event, state)))
+    ($functor:expr) => {
+            FunctorType::Basic(Box::new(|event, state| Box::pin($functor(event, state))))
+    };
+}
+
+#[macro_export]
+macro_rules! wrap_extra {
+    ($functor:expr) => {
+            FunctorType::Extra(Box::new(|event, state, text| Box::pin($functor(event, state, text))))
     };
 }
 
@@ -38,7 +47,7 @@ pub struct Bot<State: Clone + Send + Sync> {
     streams: Option<Vec<network::Stream>>,
 }
 
-impl<State: Clone + Send + Sync> Bot<State> {
+impl<State: Clone + Send + Sync + 'static> Bot<State> {
     pub fn new(
         keypair: secp256k1::KeyPair,
         relays: Vec<String>,
@@ -85,6 +94,11 @@ impl<State: Clone + Send + Sync> Bot<State> {
 
     pub fn set_intro_message(mut self, message: &str) -> Self {
         self.profile.intro_message = Some(message.to_string());
+        self
+    }
+
+    pub fn help(mut self) -> Self {
+        self.commands.lock().unwrap().push(Command::new("!help", wrap_extra!(help_command)).desc("Show this help."));
         self
     }
 
