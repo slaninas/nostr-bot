@@ -125,7 +125,11 @@ pub fn get_tags_for_reply(event: Event) -> Vec<Vec<String>> {
     tags
 }
 
-pub fn get_profile_event(name: Option<String>, about: Option<String>, picture_url: Option<String>) -> EventNonSigned {
+pub fn get_profile_event(
+    name: Option<String>,
+    about: Option<String>,
+    picture_url: Option<String>,
+) -> EventNonSigned {
     let name = if let Some(name) = name {
         name
     } else {
@@ -142,7 +146,7 @@ pub fn get_profile_event(name: Option<String>, about: Option<String>, picture_ur
         "".to_string()
     };
 
-    EventNonSigned{
+    EventNonSigned {
         created_at: crate::utils::unix_timestamp(),
         kind: 0,
         tags: vec![],

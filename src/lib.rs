@@ -5,7 +5,7 @@ mod network;
 mod nostr;
 mod utils;
 
-pub use bot::{Command, Commands, Functor, help_command};
+pub use bot::{help_command, Command, Commands, Functor};
 pub use network::Network;
 pub use nostr::{format_reply, Event, EventNonSigned};
 
@@ -24,14 +24,16 @@ pub use bot::FunctorType;
 #[macro_export]
 macro_rules! wrap {
     ($functor:expr) => {
-            FunctorType::Basic(Box::new(|event, state| Box::pin($functor(event, state))))
+        FunctorType::Basic(Box::new(|event, state| Box::pin($functor(event, state))))
     };
 }
 
 #[macro_export]
 macro_rules! wrap_extra {
     ($functor:expr) => {
-            FunctorType::Extra(Box::new(|event, state, text| Box::pin($functor(event, state, text))))
+        FunctorType::Extra(Box::new(|event, state, text| {
+            Box::pin($functor(event, state, text))
+        }))
     };
 }
 
@@ -66,10 +68,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
     }
 
     pub fn command(self, command: Command<State>) -> Self {
-            self.commands
-            .lock()
-            .unwrap()
-            .push(command);
+        self.commands.lock().unwrap().push(command);
         self
     }
 
@@ -98,7 +97,10 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
     }
 
     pub fn help(mut self) -> Self {
-        self.commands.lock().unwrap().push(Command::new("!help", wrap_extra!(help_command)).desc("Show this help."));
+        self.commands
+            .lock()
+            .unwrap()
+            .push(Command::new("!help", wrap_extra!(help_command)).desc("Show this help."));
         self
     }
 
