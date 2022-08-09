@@ -330,7 +330,7 @@ pub async fn main_bot_listener<State: Clone + Sync + Send>(
     }
 }
 
-pub async fn listen_relay(
+async fn listen_relay(
     stream: network::Stream,
     sink: network::Sink,
     main_bot_tx: NostrMessageSender,
