@@ -60,6 +60,29 @@ async fn rest(event: Event, _state: State<Votes>) -> EventNonSigned {
     )
 }
 
+// async fn dummy_loop(s: String, sender: Sender, keypair: secp256k1::KeyPair) {
+    // loop {
+        // let timestamp = std::time::SystemTime::now()
+            // .duration_since(std::time::UNIX_EPOCH)
+            // .unwrap()
+            // .as_secs();
+
+        // let event = EventNonSigned {
+            // created_at: timestamp,
+            // kind: 1,
+            // tags: vec![],
+            // content: s.clone(),
+        // };
+        // sender
+            // .lock()
+            // .await
+            // .send(event.sign(&keypair).format())
+            // .await;
+        // println!("{}", s);
+        // tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+    // }
+// }
+
 #[tokio::main]
 async fn main() {
     nostr_bot::init_logger();
@@ -103,9 +126,9 @@ async fn main() {
                 .desc("Special command that is run when no other command matches."),
         )
         .sender(sender.clone())
-        .spawn(Box::pin(
-            async move { dummy_loop(s, sender, keypair).await },
-        ))
+        // .spawn(Box::pin(
+            // async move { dummy_loop(s, sender, keypair).await },
+        // ))
         .help();
     bot.run(shared_state).await;
 }
