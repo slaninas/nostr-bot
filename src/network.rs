@@ -40,7 +40,7 @@ pub enum StreamType {
 #[derive(Clone)]
 pub struct Sink {
     pub sink: SinkType,
-    pub peer_addr: String,
+    pub peer_addr: url::Url,
 }
 
 impl Sink {
@@ -74,7 +74,7 @@ impl Sink {
 
 pub struct Stream {
     pub stream: StreamType,
-    pub peer_addr: String,
+    pub peer_addr: url::Url,
 }
 
 pub enum Network {
@@ -144,7 +144,7 @@ pub async fn ping(sink_wrap: Sink) -> bool {
     }
 }
 
-pub async fn try_connect(relays: &Vec<String>, network: &Network) -> (Vec<Sink>, Vec<Stream>) {
+pub async fn try_connect(relays: &Vec<url::Url>, network: &Network) -> (Vec<Sink>, Vec<Stream>) {
     let mut sinks = vec![];
     let mut streams = vec![];
 
@@ -160,7 +160,7 @@ pub async fn try_connect(relays: &Vec<String>, network: &Network) -> (Vec<Sink>,
     (sinks, streams)
 }
 
-pub async fn get_connection(relay: &String, network: &Network) -> Result<(Sink, Stream), String> {
+pub async fn get_connection(relay: &url::Url, network: &Network) -> Result<(Sink, Stream), String> {
     match network {
         Network::Tor => {
             let ws_stream = connect_proxy(relay).await;
@@ -210,22 +210,26 @@ pub async fn get_connection(relay: &String, network: &Network) -> Result<(Sink, 
     }
 }
 
-async fn connect(relay: &String) -> Result<WebSocket, tungstenite::Error> {
+async fn connect(relay: &url::Url) -> Result<WebSocket, tungstenite::Error> {
     info!("Connecting to {} using clearnet", relay);
     let (ws_stream, _response) =
-        tokio_tungstenite::connect_async(url::Url::parse(relay).unwrap()).await?;
+        tokio_tungstenite::connect_async(relay).await?;
     info!("Connected to {}", relay);
     Ok(ws_stream)
 }
 
 const TCP_PROXY_ADDR: &str = "127.0.0.1:9050";
 
-async fn connect_proxy(relay: &String) -> Result<WebSocketTor, tungstenite::Error> {
+async fn connect_proxy(relay: &url::Url) -> Result<WebSocketTor, tungstenite::Error> {
     info!("Connecting to {} using tor", relay);
     let ws_onion_addr = relay;
-    let onion_addr = ws_onion_addr.clone();
-    let onion_addr = onion_addr.split('/').collect::<Vec<_>>()[2];
+
+    let onion_addr = match ws_onion_addr.host_str() {
+        Some(addr) => addr,
+        None => panic!("Unable to parse >{}<", ws_onion_addr)
+    };
     debug!("onion_addr >{}<", onion_addr);
+
     let socket = TcpStream::connect(TCP_PROXY_ADDR).await.unwrap();
     socket.set_nodelay(true).unwrap();
     let conn = Socks5Stream::connect_with_socket(socket, onion_addr)

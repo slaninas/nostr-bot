@@ -95,7 +95,7 @@ macro_rules! wrap_extra {
 // Bot stuff
 pub struct Bot<State: Clone + Send + Sync> {
     keypair: secp256k1::KeyPair,
-    relays: Vec<String>,
+    relays: Vec<url::Url>,
     network_type: network::Network,
     commands: Commands<State>,
 
@@ -109,7 +109,7 @@ pub struct Bot<State: Clone + Send + Sync> {
 impl<State: Clone + Send + Sync + 'static> Bot<State> {
     pub fn new(
         keypair: secp256k1::KeyPair,
-        relays: Vec<String>,
+        relays: Vec<url::Url>,
         network_type: network::Network,
     ) -> Self {
         Bot {
@@ -186,7 +186,7 @@ pub struct BotInfo {
 }
 
 impl BotInfo {
-    pub async fn connected_relays(&self) -> Vec<String> {
+    pub async fn connected_relays(&self) -> Vec<url::Url> {
         let sender = self.sender.clone();
         let sinks = sender.lock().await.sinks.clone();
 
