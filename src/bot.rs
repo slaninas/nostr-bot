@@ -304,7 +304,7 @@ pub async fn request_subscription(keypair: &secp256k1::KeyPair, sink: network::S
     // Listen for my pubkey mentions
     network::send(
         format!(
-            r##"["REQ", "{}", {{"#p": ["{}"], "since": {}}} ]"##,
+            r##"["REQ", "{}", {{"#p": ["{}"], "kind": 1, "since": {}}} ]"##,
             random_string,
             keypair.x_only_public_key().0,
             utils::unix_timestamp(),
