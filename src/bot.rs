@@ -2,54 +2,20 @@ use futures_util::StreamExt;
 use log::{debug, info, warn};
 use rand::Rng;
 
-use crate::Bot;
-use crate::{network, nostr, utils};
-
-pub type FunctorRaw<State> =
-    dyn Fn(
-        nostr::Event,
-        State,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = nostr::EventNonSigned>>>;
-pub type Functor<State> = Box<FunctorRaw<State>>;
-
-pub type FunctorExtraRaw<State> =
-    dyn Fn(
-        nostr::Event,
-        State,
-        BotInfo,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = nostr::EventNonSigned>>>;
-pub type FunctorExtra<State> = Box<FunctorExtraRaw<State>>;
-
-pub enum FunctorType<State> {
-    Basic(Functor<State>),
-    Extra(FunctorExtra<State>),
-}
-
-pub struct Command<State: Clone + Send + Sync> {
-    pub prefix: String,
-    pub description: Option<String>,
-    pub functor: FunctorType<State>,
-}
-
-impl<State: Clone + Send + Sync> Command<State> {
-    pub fn new(prefix: &str, functor: FunctorType<State>) -> Self {
-        Self {
-            prefix: prefix.to_string(),
-            description: None,
-            functor,
-        }
-    }
-
-    pub fn desc(mut self, description: &str) -> Self {
-        self.description = Some(description.to_string());
-        self
-    }
-}
-
-pub type Commands<State> = std::sync::Arc<std::sync::Mutex<Vec<Command<State>>>>;
+use crate::*;
 
 // Implementation of internal Bot methods
+
 impl<State: Clone + Send + Sync> Bot<State> {
+    pub(super) async fn connect(&mut self) {
+        debug!("Connecting to relays.");
+        let (sinks, streams) = network::try_connect(&self.relays, &self.network_type).await;
+        assert!(!sinks.is_empty() && !streams.is_empty());
+        // TODO: Check is sender isn't filled already
+        *self.sender.lock().await = SenderRaw { sinks };
+        self.streams = Some(streams);
+    }
+
     pub(super) async fn really_run(&mut self, state: State) {
         set_profile(
             &self.keypair,
@@ -108,7 +74,7 @@ impl<State: Clone + Send + Sync> Bot<State> {
         .await
     }
 
-    pub async fn main_bot_listener(
+    pub(super) async fn main_bot_listener(
         &self,
         state: State,
         sender: Sender,
@@ -222,41 +188,18 @@ impl<State: Clone + Send + Sync> Bot<State> {
     }
 }
 
-#[derive(Clone)]
-pub struct BotInfo {
-    help: String,
-    sender: Sender,
-}
-
-impl BotInfo {
-    pub async fn connected_relays(&self) -> Vec<String> {
-        let sender = self.sender.clone();
-        let sinks = sender.lock().await.sinks.clone();
-
-        let mut results = vec![];
-        for relay in sinks {
-            let peer_addr = relay.peer_addr.clone();
-            if network::ping(relay).await {
-                results.push(peer_addr);
-            }
-        }
-
-        results
-    }
-}
-
 type NostrMessageReceiver = tokio::sync::mpsc::Receiver<nostr::Message>;
 type NostrMessageSender = tokio::sync::mpsc::Sender<nostr::Message>;
 
-pub struct Profile {
-    pub name: Option<String>,
-    pub about: Option<String>,
-    pub picture_url: Option<String>,
-    pub intro_message: Option<String>,
+pub(super) struct Profile {
+    pub(super) name: Option<String>,
+    pub(super) about: Option<String>,
+    pub(super) picture_url: Option<String>,
+    pub(super) intro_message: Option<String>,
 }
 
 impl Profile {
-    pub fn new() -> Self {
+    pub(super) fn new() -> Self {
         Self {
             name: None,
             about: None,
@@ -266,23 +209,7 @@ impl Profile {
     }
 }
 
-pub type Sender = std::sync::Arc<tokio::sync::Mutex<SenderRaw>>;
-
-pub struct SenderRaw {
-    pub sinks: Vec<network::Sink>,
-}
-
-impl SenderRaw {
-    pub async fn send(&self, message: String) {
-        network::send_to_all(message, self.sinks.clone()).await;
-    }
-
-    pub fn add(&mut self, sink: network::Sink) {
-        self.sinks.push(sink);
-    }
-}
-
-pub async fn set_profile(
+pub(super) async fn set_profile(
     keypair: &secp256k1::KeyPair,
     sender: Sender,
     name: Option<String>,
@@ -302,7 +229,7 @@ pub async fn set_profile(
     sender.lock().await.send(message).await;
 }
 
-pub async fn request_subscription(keypair: &secp256k1::KeyPair, sink: network::Sink) {
+pub(super) async fn request_subscription(keypair: &secp256k1::KeyPair, sink: network::Sink) {
     let random_string = rand::thread_rng()
         .sample_iter(rand::distributions::Alphanumeric)
         .take(64)
@@ -412,12 +339,4 @@ async fn listen_relay(
             }
         }
     }
-}
-
-pub async fn help_command<State>(
-    event: nostr::Event,
-    _state: State,
-    bot_info: BotInfo,
-) -> nostr::EventNonSigned {
-    nostr::format_reply(event, bot_info.help)
 }

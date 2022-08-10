@@ -60,28 +60,28 @@ async fn rest(event: Event, _state: State<Votes>) -> EventNonSigned {
     )
 }
 
-// async fn dummy_loop(s: String, sender: Sender, keypair: secp256k1::KeyPair) {
-    // loop {
-        // let timestamp = std::time::SystemTime::now()
-            // .duration_since(std::time::UNIX_EPOCH)
-            // .unwrap()
-            // .as_secs();
+async fn dummy_loop(s: String, sender: Sender, keypair: secp256k1::KeyPair) {
+    loop {
+        let timestamp = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
 
-        // let event = EventNonSigned {
-            // created_at: timestamp,
-            // kind: 1,
-            // tags: vec![],
-            // content: s.clone(),
-        // };
-        // sender
-            // .lock()
-            // .await
-            // .send(event.sign(&keypair).format())
-            // .await;
-        // println!("{}", s);
-        // tokio::time::sleep(std::time::Duration::from_secs(60)).await;
-    // }
-// }
+        let event = EventNonSigned {
+            created_at: timestamp,
+            kind: 1,
+            tags: vec![],
+            content: s.clone(),
+        };
+        sender
+            .lock()
+            .await
+            .send(event.sign(&keypair).format())
+            .await;
+        println!("{}", s);
+        tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+    }
+}
 
 #[tokio::main]
 async fn main() {
@@ -113,10 +113,10 @@ async fn main() {
 
     let pic_url = "https://thumbs.dreamstime.com/z/poll-survey-results-voting-election-opinion-word-red-d-letters-pie-chart-to-illustrate-opinions-61587174.jpg";
     let mut bot = Bot::<State>::new(keypair, relays, Network::Clearnet)
-        .set_name("poll_bot")
-        .set_about("Just a bot.")
-        .set_picture(pic_url)
-        .set_intro_message(&question)
+        .name("poll_bot")
+        .about("Just a bot.")
+        .picture(pic_url)
+        .intro_message(&question)
         .command(Command::new("!results", wrap!(results)).desc("Show voting results."))
         .command(Command::new("!yes", wrap!(yes)).desc("Add one 'yes' vote."))
         .command(Command::new("!no", wrap!(no)).desc("Add one 'no' vote."))
@@ -126,9 +126,9 @@ async fn main() {
                 .desc("Special command that is run when no other command matches."),
         )
         .sender(sender.clone())
-        // .spawn(Box::pin(
-            // async move { dummy_loop(s, sender, keypair).await },
-        // ))
+        .spawn(Box::pin(
+            async move { dummy_loop(s, sender, keypair).await },
+        ))
         .help();
     bot.run(shared_state).await;
 }
