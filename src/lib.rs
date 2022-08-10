@@ -7,7 +7,7 @@ mod nostr;
 pub mod utils;
 
 pub use network::Network;
-pub use nostr::{format_reply, Event, EventNonSigned};
+pub use nostr::{format_reply, tags_for_reply, Event, EventNonSigned};
 
 pub type State<T> = std::sync::Arc<tokio::sync::Mutex<T>>;
 
@@ -149,7 +149,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         self.commands
             .lock()
             .unwrap()
-            .push(Command::new("!help", wrap_extra!(help_command)).desc("Show this help."));
+            .push(Command::new("!help", wrap_extra!(bot::help_command)).desc("Show this help."));
         self
     }
 
@@ -219,12 +219,4 @@ pub fn init_logger() {
 
 pub fn wrap_state<T>(gift: T) -> State<T> {
     std::sync::Arc::new(tokio::sync::Mutex::new(gift))
-}
-
-pub async fn help_command<State>(
-    event: nostr::Event,
-    _state: State,
-    bot_info: BotInfo,
-) -> nostr::EventNonSigned {
-    nostr::format_reply(event, bot_info.help)
 }

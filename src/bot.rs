@@ -188,6 +188,14 @@ impl<State: Clone + Send + Sync> Bot<State> {
     }
 }
 
+pub(super) async fn help_command<State>(
+    event: nostr::Event,
+    _state: State,
+    bot_info: BotInfo,
+) -> nostr::EventNonSigned {
+    nostr::format_reply(event, bot_info.help)
+}
+
 type NostrMessageReceiver = tokio::sync::mpsc::Receiver<nostr::Message>;
 type NostrMessageSender = tokio::sync::mpsc::Sender<nostr::Message>;
 

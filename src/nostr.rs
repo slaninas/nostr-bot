@@ -100,7 +100,7 @@ impl Event {
     }
 }
 
-pub fn get_tags_for_reply(event: Event) -> Vec<Vec<String>> {
+pub fn tags_for_reply(event: Event) -> Vec<Vec<String>> {
     let mut e_tags = vec![];
     let mut p_tags = vec![];
 
@@ -164,7 +164,7 @@ pub fn format_reply(reply_to: Event, content: String) -> EventNonSigned {
         content: content,
         created_at: crate::utils::unix_timestamp(),
         kind: 1,
-        tags: get_tags_for_reply(reply_to),
+        tags: tags_for_reply(reply_to),
     }
 }
 

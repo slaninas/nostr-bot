@@ -212,8 +212,7 @@ pub async fn get_connection(relay: &url::Url, network: &Network) -> Result<(Sink
 
 async fn connect(relay: &url::Url) -> Result<WebSocket, tungstenite::Error> {
     info!("Connecting to {} using clearnet", relay);
-    let (ws_stream, _response) =
-        tokio_tungstenite::connect_async(relay).await?;
+    let (ws_stream, _response) = tokio_tungstenite::connect_async(relay).await?;
     info!("Connected to {}", relay);
     Ok(ws_stream)
 }
@@ -226,7 +225,7 @@ async fn connect_proxy(relay: &url::Url) -> Result<WebSocketTor, tungstenite::Er
 
     let host = match ws_onion_addr.host_str() {
         Some(addr) => addr,
-        None => panic!("Unable to parse >{}<", ws_onion_addr)
+        None => panic!("Unable to parse >{}<", ws_onion_addr),
     };
 
     let port = match ws_onion_addr.port() {
