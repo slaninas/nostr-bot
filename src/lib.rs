@@ -1,15 +1,16 @@
 use log::debug;
+use std::future::Future;
 
 mod bot;
 mod network;
 mod nostr;
 mod utils;
 
-pub use bot::{help_command, Command, Commands, Functor, BotInfo};
+pub use bot::{help_command, Command, Commands, Functor, BotInfo, Sender};
 pub use network::Network;
 pub use nostr::{format_reply, Event, EventNonSigned};
 
-use bot::{Profile, Sender, SenderRaw};
+use bot::{Profile, SenderRaw};
 
 pub type FunctorRaw<State> =
     dyn Fn(
@@ -45,8 +46,9 @@ pub struct Bot<State: Clone + Send + Sync> {
 
     profile: Profile,
 
-    sender: Sender,
+    sender: Sender, // TODO: Use Option
     streams: Option<Vec<network::Stream>>,
+    to_spawn: Vec<Box<dyn std::future::Future<Output = ()> + Send + Unpin>>,
 }
 
 impl<State: Clone + Send + Sync + 'static> Bot<State> {
@@ -64,16 +66,18 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
 
             sender: std::sync::Arc::new(tokio::sync::Mutex::new(SenderRaw { sinks: vec![] })),
             streams: None,
+            to_spawn: vec![],
         }
+    }
+
+    pub fn sender(mut self, sender: Sender) -> Self {
+        self.sender = sender;
+        self
     }
 
     pub fn command(self, command: Command<State>) -> Self {
         self.commands.lock().unwrap().push(command);
         self
-    }
-
-    pub fn get_sender(&self) -> Sender {
-        self.sender.clone()
     }
 
     pub fn set_name(mut self, name: &str) -> Self {
@@ -96,7 +100,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         self
     }
 
-    pub fn help(mut self) -> Self {
+    pub fn help(self) -> Self {
         self.commands
             .lock()
             .unwrap()
@@ -104,11 +108,17 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         self
     }
 
+    pub fn spawn(mut self, fut: impl Future<Output = ()> + Unpin + Send + 'static) -> Self {
+        self.to_spawn.push(Box::new(fut));
+        self
+    }
+
     pub async fn connect(&mut self) {
         debug!("Connecting to relays.");
         let (sinks, streams) = network::try_connect(&self.relays, &self.network_type).await;
         assert!(!sinks.is_empty() && !streams.is_empty());
-        self.sender = std::sync::Arc::new(tokio::sync::Mutex::new(SenderRaw { sinks }));
+        // TODO: Check is sender isn't filled already
+        *self.sender.lock().await = SenderRaw { sinks };
         self.streams = Some(streams);
     }
 
@@ -121,6 +131,11 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         self.really_run(state).await;
     }
 }
+
+pub fn new_sender() -> Sender {
+    std::sync::Arc::new(tokio::sync::Mutex::new(SenderRaw{ sinks: vec![]}))
+}
+
 
 pub fn init_logger() {
     // let _start = std::time::Instant::now();

@@ -1,6 +1,7 @@
 // Simple example of voting bot that reacts to 'yes', 'no' and 'results' commands.
 use nostr_bot::{
-    format_reply, wrap, wrap_extra, Command, Event, EventNonSigned, FunctorType, Network, State, BotInfo
+    format_reply, new_sender, wrap, wrap_extra, Bot, BotInfo, Command, Event, EventNonSigned,
+    FunctorType, Network, Sender, State,
 };
 
 struct Votes {
@@ -84,8 +85,11 @@ async fn main() {
         no: 0,
     });
 
+    let s = String::from("Just a dummy talking.");
+    let sender = new_sender();
+
     let pic_url = "https://thumbs.dreamstime.com/z/poll-survey-results-voting-election-opinion-word-red-d-letters-pie-chart-to-illustrate-opinions-61587174.jpg";
-    let mut bot = nostr_bot::Bot::<State>::new(keypair, relays, Network::Clearnet)
+    let mut bot = Bot::<State>::new(keypair, relays, Network::Clearnet)
         .set_name("poll_bot")
         .set_about("Just a bot.")
         .set_picture(pic_url)
@@ -98,6 +102,10 @@ async fn main() {
             Command::new("", wrap!(rest))
                 .desc("Special command that is run when no other command matches."),
         )
+        .sender(sender.clone())
+        .spawn(Box::pin(
+            async move { dummy_loop(s, sender, keypair).await },
+        ))
         .help();
     bot.run(shared_state).await;
 }

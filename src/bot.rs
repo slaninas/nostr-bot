@@ -90,6 +90,13 @@ impl<State: Clone + Send + Sync> Bot<State> {
             self.sender.lock().await.send(welcome.format()).await;
         };
 
+        let mut to_spawn = vec![];
+        std::mem::swap(&mut to_spawn, &mut self.to_spawn);
+
+        for fut in to_spawn {
+            tokio::spawn(fut);
+        }
+
         let commands = self.commands.clone();
         self.main_bot_listener(
             state.clone(),
