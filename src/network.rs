@@ -224,11 +224,18 @@ async fn connect_proxy(relay: &url::Url) -> Result<WebSocketTor, tungstenite::Er
     info!("Connecting to {} using tor", relay);
     let ws_onion_addr = relay;
 
-    let onion_addr = match ws_onion_addr.host_str() {
+    let host = match ws_onion_addr.host_str() {
         Some(addr) => addr,
         None => panic!("Unable to parse >{}<", ws_onion_addr)
     };
-    debug!("onion_addr >{}<", onion_addr);
+
+    let port = match ws_onion_addr.port() {
+        Some(port) => port.to_string(),
+        None => "".to_string(),
+    };
+
+    let onion_addr = format!("{}:{}", host, port);
+    debug!("onion_addr >{}:{}<", host, port);
 
     let socket = TcpStream::connect(TCP_PROXY_ADDR).await.unwrap();
     socket.set_nodelay(true).unwrap();
