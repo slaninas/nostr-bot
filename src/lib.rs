@@ -5,7 +5,7 @@ mod network;
 mod nostr;
 mod utils;
 
-pub use bot::{help_command, Command, Commands, Functor};
+pub use bot::{help_command, Command, Commands, Functor, BotInfo};
 pub use network::Network;
 pub use nostr::{format_reply, Event, EventNonSigned};
 

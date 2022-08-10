@@ -111,6 +111,11 @@ impl<State: Clone + Send + Sync> Bot<State> {
     ) {
         let mut handled_events = std::collections::HashSet::new();
 
+        let bot_info = BotInfo {
+            help: self.generate_help(),
+            sender: self.sender.clone(),
+        };
+
         info!("Main bot listener started.");
         while let Some(message) = rx.recv().await {
             let event_id = message.content.id.clone();
@@ -122,10 +127,6 @@ impl<State: Clone + Send + Sync> Bot<State> {
             handled_events.insert(event_id);
 
             debug!("Handling {}", message.content.format());
-
-            let bot_info = BotInfo {
-                help: self.generate_help(),
-            };
 
             let command = message.content.content.clone();
             let words = command.split_whitespace().collect::<Vec<_>>();
@@ -170,7 +171,7 @@ impl<State: Clone + Send + Sync> Bot<State> {
                             Some((functor)(message.content, state.clone()).await)
                         }
                         FunctorType::Extra(functor) => {
-                            Some((functor)(message.content, state.clone(), bot_info).await)
+                            Some((functor)(message.content, state.clone(), bot_info.clone()).await)
                         }
                     }
                 } else {
@@ -214,8 +215,27 @@ impl<State: Clone + Send + Sync> Bot<State> {
     }
 }
 
+#[derive(Clone)]
 pub struct BotInfo {
     help: String,
+    sender: Sender,
+}
+
+impl BotInfo {
+    pub async fn connected_relays(&self) -> Vec<String> {
+        let sender = self.sender.clone();
+        let sinks = sender.lock().await.sinks.clone();
+
+        let mut results = vec![];
+        for relay in sinks {
+            let peer_addr = relay.peer_addr.clone();
+            if network::ping(relay).await {
+                results.push(peer_addr);
+            }
+        }
+
+        results
+    }
 }
 
 type NostrMessageReceiver = tokio::sync::mpsc::Receiver<nostr::Message>;

@@ -1,6 +1,6 @@
 // Simple example of voting bot that reacts to 'yes', 'no' and 'results' commands.
 use nostr_bot::{
-    format_reply, wrap, wrap_extra, Command, Event, EventNonSigned, FunctorType, Network, State,
+    format_reply, wrap, wrap_extra, Command, Event, EventNonSigned, FunctorType, Network, State, BotInfo
 };
 
 struct Votes {
@@ -40,6 +40,12 @@ async fn no(event: Event, state: State<Votes>) -> EventNonSigned {
 async fn results(event: Event, state: State<Votes>) -> EventNonSigned {
     let votes = state.lock().await;
     format_reply(event, format_results(&votes.question, &votes))
+}
+
+async fn show_relays(event: Event, _state: State<Votes>, bot: BotInfo) -> EventNonSigned {
+    let connected_relays = bot.connected_relays().await;
+    let text = format!("I'm connected to these relays: {:?}", connected_relays);
+    format_reply(event, text)
 }
 
 async fn rest(event: Event, _state: State<Votes>) -> EventNonSigned {
@@ -87,6 +93,7 @@ async fn main() {
         .command(Command::new("!results", wrap!(results)).desc("Show voting results."))
         .command(Command::new("!yes", wrap!(yes)).desc("Add one 'yes' vote."))
         .command(Command::new("!no", wrap!(no)).desc("Add one 'no' vote."))
+        .command(Command::new("!relays", wrap_extra!(show_relays)).desc("Show connected relays."))
         .command(
             Command::new("", wrap!(rest))
                 .desc("Special command that is run when no other command matches."),
