@@ -6,7 +6,7 @@ mod network;
 mod nostr;
 pub mod utils;
 
-pub use network::Network;
+pub use network::ConnectionType;
 pub use nostr::{format_reply, tags_for_reply, Event, EventNonSigned};
 
 pub type State<T> = std::sync::Arc<tokio::sync::Mutex<T>>;
@@ -94,7 +94,8 @@ macro_rules! wrap_extra {
 pub struct Bot<State: Clone + Send + Sync> {
     keypair: secp256k1::KeyPair,
     relays: Vec<url::Url>,
-    network_type: network::Network,
+    connection_type: ConnectionType,
+    proxy_addr: Option<url::Url>,
 
     user_commands: bot::UserCommands<State>,
     commands: bot::Commands<State>,
@@ -111,13 +112,13 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
     pub fn new(
         keypair: secp256k1::KeyPair,
         relays: Vec<url::Url>,
-        network_type: network::Network,
         state: State,
     ) -> Self {
         Bot {
             keypair,
             relays,
-            network_type,
+            connection_type: ConnectionType::Direct,
+            proxy_addr: None,
 
             user_commands: vec![],
             commands: std::sync::Arc::new(tokio::sync::Mutex::new(vec![])),
@@ -162,13 +163,20 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         self
     }
 
-    pub fn spawn(mut self, fut: impl Future<Output = ()> + Unpin + Send + 'static) -> Self {
-        self.to_spawn.push(Box::new(fut));
+    pub fn spawn(mut self, future: impl Future<Output = ()> + Unpin + Send + 'static) -> Self {
+        self.to_spawn.push(Box::new(future));
         self
     }
 
     pub fn sender(mut self, sender: Sender) -> Self {
         self.sender = sender;
+        self
+    }
+
+
+    pub fn use_socks5(mut self, proxy_addr: url::Url) -> Self {
+        self.connection_type = ConnectionType::Socks5;
+        self.proxy_addr = Some(proxy_addr);
         self
     }
 

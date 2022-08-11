@@ -13,7 +13,8 @@ pub(super) type Commands<State> = std::sync::Arc<tokio::sync::Mutex<UserCommands
 impl<State: Clone + Send + Sync> Bot<State> {
     pub(super) async fn connect(&mut self) {
         debug!("Connecting to relays.");
-        let (sinks, streams) = network::try_connect(&self.relays, &self.network_type).await;
+        let (sinks, streams) =
+            network::try_connect(&self.relays, &self.connection_type, &self.proxy_addr).await;
         assert!(!sinks.is_empty() && !streams.is_empty());
         // TODO: Check is sender isn't filled already
         *self.sender.lock().await = SenderRaw { sinks };
@@ -36,12 +37,15 @@ impl<State: Clone + Send + Sync> Bot<State> {
         let sinks = self.sender.lock().await.sinks.clone();
 
         let streams = self.streams.take();
+
         if let Some(streams) = streams {
             for (id, stream) in streams.into_iter().enumerate() {
+                let proxy_addr = self.proxy_addr.clone();
                 let sink = sinks[id].clone();
                 let main_bot_tx = main_bot_tx.clone();
+
                 tokio::spawn(async move {
-                    listen_relay(stream, sink, main_bot_tx, keypair).await;
+                    listen_relay(stream, sink, main_bot_tx, keypair, proxy_addr).await;
                 });
             }
         }
@@ -296,11 +300,11 @@ async fn relay_listener(
     };
 
     match stream.stream {
-        network::StreamType::Clearnet(stream) => {
+        network::StreamType::Direct(stream) => {
             let f = stream.for_each(listen);
             f.await;
         }
-        network::StreamType::Tor(stream) => {
+        network::StreamType::Socks5(stream) => {
             let f = stream.for_each(listen);
             f.await;
         }
@@ -312,13 +316,14 @@ async fn listen_relay(
     sink: network::Sink,
     main_bot_tx: NostrMessageSender,
     main_bot_keypair: secp256k1::KeyPair,
+    proxy_addr: Option<url::Url>,
 ) {
     info!("Relay listener for {} started.", sink.peer_addr);
     let peer_addr = sink.peer_addr.clone();
 
-    let network_type = match sink.clone().sink {
-        network::SinkType::Clearnet(_) => network::Network::Clearnet,
-        network::SinkType::Tor(_) => network::Network::Tor,
+    let connection_type = match sink.clone().sink {
+        network::SinkType::Direct(_) => network::ConnectionType::Direct,
+        network::SinkType::Socks5(_) => network::ConnectionType::Socks5,
     };
 
     let mut stream = stream;
@@ -335,7 +340,8 @@ async fn listen_relay(
         // Reconnect
         loop {
             tokio::time::sleep(wait).await;
-            let connection = network::get_connection(&peer_addr, &network_type).await;
+            let connection =
+                network::get_connection(&peer_addr, &connection_type, &proxy_addr).await;
             match connection {
                 Ok((new_sink, new_stream)) => {
                     sink.update(new_sink.sink).await;
