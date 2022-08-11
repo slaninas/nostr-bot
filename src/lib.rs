@@ -1,3 +1,109 @@
+/*!
+Do you want to run your own nostr bot? You've come to the right place.
+This crate makes it easy for you to implement your bot that reacts to the nostr events.
+
+# Usage
+This crate is on [crates.io](https://crates.io/crates/nostr-bot) and can be
+used by adding `nostr-bot` to your dependencies in your project's `Cargo.toml`.
+
+Be aware that this crate is still being developed and until 1.0 is out there may be API breaking
+even in MINOR (see [SemVer](https://semver.org/)) releases, PATCHES should be compatible
+so If you want to make sure the API stays compatible with your code commit to a specific MINOR version:
+
+```toml
+[dependencies]
+nostr-bot = "0.1"
+```
+
+# Example
+```rust
+// Bot that reacts to '!yes', '!no' and '!results' commands.
+use nostr_bot::*;
+
+// Your struct that will be passed to the commands responses
+struct Votes {
+    question: String,
+    yes: u64,
+    no: u64,
+}
+
+type State = nostr_bot::State<Votes>;
+
+fn format_results(question: &str, votes: &Votes) -> String {
+    format!(
+        "{}\n------------------\nyes: {}\nno:  {}",
+        question, votes.yes, votes.no
+    )
+}
+
+// Command responses, you are getting nostr event and shared state as
+// arguments and you are supposed to return non-signed event
+// which is then signed using the bot's key and send to relays
+async fn yes(event: Event, state: State) -> EventNonSigned {
+    let mut votes = state.lock().await;
+    votes.yes += 1;
+
+    // Use given formatted voting results and use it to create new event
+    // that is a reply to the incoming command
+    get_reply(event, format_results(&votes.question, &votes))
+}
+
+async fn no(event: Event, state: State) -> EventNonSigned {
+    let mut votes = state.lock().await;
+    votes.no += 1;
+    get_reply(event, format_results(&votes.question, &votes))
+}
+
+async fn results(event: Event, state: State) -> EventNonSigned {
+    let votes = state.lock().await;
+    get_reply(event, format_results(&votes.question, &votes))
+}
+
+#[tokio::main]
+async fn main() {
+    init_logger();
+
+    let relays = vec![
+        // url::Url::parse("wss://nostr-pub.wellorder.net").unwrap(),
+        // url::Url::parse("wss://relay.damus.io").unwrap(),
+        // url::Url::parse("wss://relay.nostr.info").unwrap(),
+        url::Url::parse("ws://192.168.1.103:8889").unwrap(),
+        url::Url::parse("ws://192.168.1.103:8890").unwrap(),
+    ];
+
+    let keypair = utils::keypair_from_secret(
+        // Your secret goes here
+        "0000000000000000000000000000000000000000000000000000000000000001",
+    );
+
+    let question = String::from("Do you think Pluto should be a planet?");
+
+    // Wrap your object into Arc<Mutex> so it can be shared among command handlers
+    let shared_state = nostr_bot::wrap_state(Votes {
+        question: question.clone(),
+        yes: 0,
+        no: 0,
+    });
+
+    // Setup the bot - add info about it, add commands and then run it
+    Bot::new(keypair, relays, shared_state)
+        // You don't have to set these but then the bot will have incomplete profile info :(
+        .name("poll_bot")
+        .about("Just a bot.")
+        .picture("https://thumbs.dreamstime.com/z/poll-survey-results-voting-election-\
+                  opinion-word-red-d-letters-pie-chart-to-illustrate-opinions-61587174.jpg")
+        .intro_message(&question)
+        // You don't have to specify any command but then what will the bot do? Nothing.
+        .command(Command::new("!yes", wrap!(yes)))
+        .command(Command::new("!no", wrap!(no)))
+        .command(Command::new("!results", wrap!(results)))
+        // And finally run it
+        .run().await;
+}
+```
+
+*/
+
 use log::debug;
 use std::future::Future;
 
@@ -91,6 +197,8 @@ macro_rules! wrap_extra {
 }
 
 // Bot stuff
+
+/// Main sctruct that holds every data necessary to run a bot
 pub struct Bot<State: Clone + Send + Sync> {
     keypair: secp256k1::KeyPair,
     relays: Vec<url::Url>,
@@ -109,6 +217,7 @@ pub struct Bot<State: Clone + Send + Sync> {
 }
 
 impl<State: Clone + Send + Sync + 'static> Bot<State> {
+    /// Basic initialization of the bot
     pub fn new(keypair: secp256k1::KeyPair, relays: Vec<url::Url>, state: State) -> Self {
         Bot {
             keypair,
@@ -128,37 +237,58 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         }
     }
 
+    /// Set bot's name
+    /// * `name` After connecting to relays this name will be send inside set_metadata kind 0 event, see
+    /// <https://github.com/nostr-protocol/nips/blob/master/01.md#basic-event-kinds>
     pub fn name(mut self, name: &str) -> Self {
         self.profile.name = Some(name.to_string());
         self
     }
 
+    /// Set bot's about info
+    /// * `about` After connecting to relays this info will be send inside set_metadata kind 0 event, see
+    /// <https://github.com/nostr-protocol/nips/blob/master/01.md#basic-event-kinds>.
+    /// Also, this is used when generating !help command, see [Bot::help()]
     pub fn about(mut self, about: &str) -> Self {
         self.profile.about = Some(about.to_string());
         self
     }
 
+    /// Set bot's profile picture
+    /// * `picture_url` After connecting to relays this will be send inside set_metadata kind 0 event, see
+    /// <https://github.com/nostr-protocol/nips/blob/master/01.md#basic-event-kinds>
     pub fn picture(mut self, picture_url: &str) -> Self {
         self.profile.picture_url = Some(picture_url.to_string());
         self
     }
 
+    /// Say hello
+    /// * `message` This message will be send when bot connects to a relay
     pub fn intro_message(mut self, message: &str) -> Self {
         self.profile.intro_message = Some(message.to_string());
         self
     }
 
+    /// Generate "manpage"
+    /// This adds !help command. When invoked it shows info about bot set in [Bot::about()] and
+    /// auto-generated list of available commands.
     pub fn help(mut self) -> Self {
         self.user_commands
             .push(Command::new("!help", wrap_extra!(bot::help_command)).desc("Show this help."));
         self
     }
 
+    /// Register `command`
+    /// When someone replies to a bot, the bot goes through all registered commands and when it
+    /// finds match it invokes given functor
     pub fn command(mut self, command: Command<State>) -> Self {
         self.user_commands.push(command);
         self
     }
 
+    /// Spawn a task using [tokio::spawn]
+    /// * `future` Future is saved and the task is spawned after the bot connects to relays in
+    /// [Bot::run].
     pub fn spawn(mut self, future: impl Future<Output = ()> + Unpin + Send + 'static) -> Self {
         self.to_spawn.push(Box::new(future));
         self
