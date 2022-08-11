@@ -112,8 +112,9 @@ use std::future::Future;
 mod bot;
 mod network;
 mod nostr;
-pub mod utils;
+mod utils;
 
+pub use utils::{unix_timestamp, keypair_from_secret};
 pub use network::ConnectionType;
 pub use nostr::{get_reply, tags_for_reply, Event, EventNonSigned};
 
