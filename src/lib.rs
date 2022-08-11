@@ -73,7 +73,6 @@ impl<State: Clone + Send + Sync> Command<State> {
     }
 }
 
-pub type Commands<State> = std::sync::Arc<std::sync::Mutex<Vec<Command<State>>>>;
 
 // Macros for easier wrapping
 #[macro_export]
@@ -98,7 +97,7 @@ pub struct Bot<State: Clone + Send + Sync> {
     relays: Vec<url::Url>,
     network_type: network::Network,
 
-    commands: Commands<State>,
+    commands: bot::Commands<State>,
     state: State,
 
     profile: bot::Profile,

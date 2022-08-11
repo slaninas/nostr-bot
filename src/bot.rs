@@ -4,6 +4,8 @@ use rand::Rng;
 
 use crate::*;
 
+pub(super) type Commands<State> = std::sync::Arc<std::sync::Mutex<Vec<Command<State>>>>;
+
 // Implementation of internal Bot methods
 
 impl<State: Clone + Send + Sync> Bot<State> {
