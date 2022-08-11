@@ -1,6 +1,6 @@
 /*!
 Do you want to run your own nostr bot? You've come to the right place.
-This crate makes it easy for you to implement your bot that reacts to the nostr events.
+This crate makes it easy for you to implement bot that reacts to the nostr events.
 
 # Usage
 This crate is on [crates.io](https://crates.io/crates/nostr-bot) and can be
@@ -122,6 +122,7 @@ pub type State<T> = std::sync::Arc<tokio::sync::Mutex<T>>;
 // Sender
 pub type Sender = std::sync::Arc<tokio::sync::Mutex<SenderRaw>>;
 
+/// Holds sinks which can be used to send messages to relays
 pub struct SenderRaw {
     pub sinks: Vec<network::Sink>,
 }
@@ -154,16 +155,21 @@ pub type FunctorExtraRaw<State> =
 
 pub type FunctorExtra<State> = Box<FunctorExtraRaw<State>>;
 
+/// Describes various functor types.
+///
+/// You should not need to use it directly, use [wrap] or [wrap_extra] macros instead.
 pub enum FunctorType<State> {
     Basic(Functor<State>),
     Extra(FunctorExtra<State>),
 }
 
 // Commands
+
+/// Holds info about invocable commands
 pub struct Command<State: Clone + Send + Sync> {
     pub prefix: String,
     pub description: Option<String>,
-    pub functor: FunctorType<State>,
+    functor: FunctorType<State>,
 }
 
 impl<State: Clone + Send + Sync> Command<State> {
@@ -182,6 +188,8 @@ impl<State: Clone + Send + Sync> Command<State> {
 }
 
 // Macros for easier wrapping
+
+/// Wraps your functor so it can be passed to the bot
 #[macro_export]
 macro_rules! wrap {
     ($functor:expr) => {
@@ -189,6 +197,7 @@ macro_rules! wrap {
     };
 }
 
+/// Wraps your functor so it can be passed to the bot
 #[macro_export]
 macro_rules! wrap_extra {
     ($functor:expr) => {
@@ -242,7 +251,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         }
     }
 
-    /// Set bot's name
+    /// Sets bot's name
     /// * `name` After connecting to relays this name will be send inside set_metadata kind 0 event, see
     /// <https://github.com/nostr-protocol/nips/blob/master/01.md#basic-event-kinds>
     pub fn name(mut self, name: &str) -> Self {
@@ -250,7 +259,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         self
     }
 
-    /// Set bot's about info
+    /// Sets bot's about info
     /// * `about` After connecting to relays this info will be send inside set_metadata kind 0 event, see
     /// <https://github.com/nostr-protocol/nips/blob/master/01.md#basic-event-kinds>.
     /// Also, this is used when generating !help command, see [Bot::help()]
@@ -267,14 +276,14 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         self
     }
 
-    /// Say hello
+    /// Says hello
     /// * `message` This message will be send when bot connects to a relay
     pub fn intro_message(mut self, message: &str) -> Self {
         self.profile.intro_message = Some(message.to_string());
         self
     }
 
-    /// Generate "manpage"
+    /// Generates "manpage"
     ///
     /// This adds !help command.
     /// When invoked it shows info about bot set in [Bot::about()] and
@@ -285,7 +294,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         self
     }
 
-    /// Register `command`.
+    /// Registers `command`.
     ///
     /// When someone replies to a bot, the bot goes through all registered commands and when it
     /// finds match it invokes given functor
@@ -294,7 +303,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         self
     }
 
-    /// Spawn a task using [tokio::spawn]
+    /// Adds a task that will be spawned [tokio::spawn]
     /// * `future` Future is saved and the task is spawned when [Bot::run] is called and bot
     /// connects to the relays
     pub fn spawn(mut self, future: impl Future<Output = ()> + Unpin + Send + 'static) -> Self {
@@ -302,14 +311,14 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         self
     }
 
-    /// Set sender
+    /// Sets sender
     /// * `sender` Sender that will be used by bot to send nostr messages to relays
     pub fn sender(mut self, sender: Sender) -> Self {
         self.sender = sender;
         self
     }
 
-    /// Tell the bot to use socks5 proxy instead of direct connection to the internet
+    /// Tells the bot to use socks5 proxy instead of direct connection to the internet
     /// * `proxy_addr` Address of the proxy including port, e.g. `127.0.0.1:9050`
     pub fn use_socks5(mut self, proxy_addr: url::Url) -> Self {
         self.connection_type = ConnectionType::Socks5;
@@ -317,7 +326,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         self
     }
 
-    /// Connect to relays, set bot's profile, send message if set using [Bot::intro_message],
+    /// Connects to relays, set bot's profile, send message if set using [Bot::intro_message],
     /// spawn tasks if given prior by [Bot::spawn()] and listern to commandss
     pub async fn run(&mut self) {
         let mut user_commands = vec![];
@@ -332,7 +341,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
     }
 }
 
-// BotInfo - Bot proxy
+/// Struct for holding informations about bot
 #[derive(Clone)]
 pub struct BotInfo {
     help: String,
@@ -340,6 +349,7 @@ pub struct BotInfo {
 }
 
 impl BotInfo {
+    /// Returns list of relays to which the bot is able to send a message
     pub async fn connected_relays(&self) -> Vec<url::Url> {
         let sender = self.sender.clone();
         let sinks = sender.lock().await.sinks.clone();
@@ -357,10 +367,13 @@ impl BotInfo {
 }
 
 // Misc
+
+/// Returns new (empty) [Sender] which can be used to send messages to relays
 pub fn new_sender() -> Sender {
     std::sync::Arc::new(tokio::sync::Mutex::new(SenderRaw { sinks: vec![] }))
 }
 
+/// Init [env_logger]
 pub fn init_logger() {
     // let _start = std::time::Instant::now();
     env_logger::Builder::from_default_env()
@@ -371,6 +384,7 @@ pub fn init_logger() {
         .init();
 }
 
+/// Wraps given object into Arc Mutex
 pub fn wrap_state<T>(gift: T) -> State<T> {
     std::sync::Arc::new(tokio::sync::Mutex::new(gift))
 }

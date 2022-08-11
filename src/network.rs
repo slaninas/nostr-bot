@@ -77,6 +77,7 @@ pub struct Stream {
     pub peer_addr: url::Url,
 }
 
+/// Direct connection to the internet or would you rather like a socks5 proxy?
 pub enum ConnectionType {
     Direct,
     Socks5,
