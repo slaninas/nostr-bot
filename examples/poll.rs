@@ -101,7 +101,6 @@ async fn main() {
 
     let question = String::from("Do you think Pluto should be a planet?");
 
-    type State = nostr_bot::State<Votes>;
     let shared_state = nostr_bot::wrap_state(Votes {
         question: question.clone(),
         yes: 0,
@@ -112,7 +111,7 @@ async fn main() {
     let sender = new_sender();
 
     let pic_url = "https://thumbs.dreamstime.com/z/poll-survey-results-voting-election-opinion-word-red-d-letters-pie-chart-to-illustrate-opinions-61587174.jpg";
-    let mut bot = Bot::<State>::new(keypair, relays, Network::Clearnet)
+    let mut bot = Bot::new(keypair, relays, Network::Clearnet, shared_state)
         .name("poll_bot")
         .about("Just a bot.")
         .picture(pic_url)
@@ -130,5 +129,5 @@ async fn main() {
             async move { dummy_loop(s, sender, keypair).await },
         ))
         .help();
-    bot.run(shared_state).await;
+    bot.run().await;
 }

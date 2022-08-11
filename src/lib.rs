@@ -97,13 +97,16 @@ pub struct Bot<State: Clone + Send + Sync> {
     keypair: secp256k1::KeyPair,
     relays: Vec<url::Url>,
     network_type: network::Network,
+
     commands: Commands<State>,
+    state: State,
 
     profile: bot::Profile,
 
     sender: Sender, // TODO: Use Option
     streams: Option<Vec<network::Stream>>,
     to_spawn: Vec<Box<dyn std::future::Future<Output = ()> + Send + Unpin>>,
+
 }
 
 impl<State: Clone + Send + Sync + 'static> Bot<State> {
@@ -111,12 +114,16 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         keypair: secp256k1::KeyPair,
         relays: Vec<url::Url>,
         network_type: network::Network,
+        state: State,
     ) -> Self {
         Bot {
             keypair,
             relays,
             network_type,
+
             commands: std::sync::Arc::new(std::sync::Mutex::new(vec![])),
+            state,
+
             profile: bot::Profile::new(),
 
             sender: std::sync::Arc::new(tokio::sync::Mutex::new(SenderRaw { sinks: vec![] })),
@@ -168,13 +175,13 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         self
     }
 
-    pub async fn run(&mut self, state: State) {
+    pub async fn run(&mut self) {
         if let None = self.streams {
             debug!("Running run() but there is no connection yet. Connecting now.");
             self.connect().await;
         }
 
-        self.really_run(state).await;
+        self.really_run(self.state.clone()).await;
     }
 }
 
