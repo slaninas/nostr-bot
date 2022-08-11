@@ -229,6 +229,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
     }
 
     /// Tells the bot to use socks5 proxy instead of direct connection to the internet
+    /// If you need anonymity please **check yourself there are no leaks**.
     /// * `proxy_addr` Address of the proxy including port, e.g. `127.0.0.1:9050`
     pub fn use_socks5(mut self, proxy_addr: url::Url) -> Self {
         self.connection_type = ConnectionType::Socks5;
