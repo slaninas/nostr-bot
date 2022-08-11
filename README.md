@@ -14,7 +14,6 @@ so If you want highly inscrease changes that the API stays compatible with your 
 nostr-bot = "0.1"
 
 ```
-Check [Bot] to see main struct of the crate.
 
 ## Example
 ```rust
