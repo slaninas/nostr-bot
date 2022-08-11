@@ -69,7 +69,7 @@ async fn main() {
         // You don't have to set these but then the bot will have incomplete profile info :(
         .name("poll_bot")
         .about("Just a bot.")
-        .picture( "https://thumbs.dreamstime.com/z/poll-survey-results-voting-election-opinion-word-red-d-letters-pie-chart-to-illustrate-opinions-61587174.jpg")
+        .picture("https://i.imgur.com/ij4XprK.jpeg")
         .intro_message(&question)
         // You don't have to specify any command but then what will the bot do? Nothing.
         .command(Command::new("!yes", wrap!(yes)))

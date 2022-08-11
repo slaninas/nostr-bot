@@ -6,9 +6,9 @@ This crate makes it easy for you to implement bot that reacts to the nostr event
 This crate is on [crates.io](https://crates.io/crates/nostr-bot) and can be
 used by adding `nostr-bot` to your dependencies in your project's `Cargo.toml`.
 
-Be aware that this crate is still being developed and until 1.0 is out there may be API breaking
+Be aware that this crate is still being developed and until 1.0 is out there may be API breaking changes
 even in MINOR (see [SemVer](https://semver.org/)) releases, PATCHES should be compatible
-so If you want to make sure the API stays compatible with your code commit to a specific MINOR version:
+so If you want to make sure the API stays compatible with your code commit to a specific MAJOR.MINOR version:
 
 ```toml
 [dependencies]
@@ -38,9 +38,9 @@ fn format_results(question: &str, votes: &Votes) -> String {
     )
 }
 
-// Command responses, you are getting nostr event and shared state as
-// arguments and you are supposed to return non-signed event
-// which is then signed using the bot's key and send to relays
+// Following functions are command responses, you are getting nostr event
+// and shared state as arguments and you are supposed to return non-signed
+// eventwhich is then signed using the bot's key and send to relays
 async fn yes(event: Event, state: State) -> EventNonSigned {
     let mut votes = state.lock().await;
     votes.yes += 1;
@@ -120,7 +120,7 @@ pub use nostr::{get_reply, tags_for_reply, Event, EventNonSigned};
 
 pub type State<T> = std::sync::Arc<tokio::sync::Mutex<T>>;
 
-// Sender
+/// Just a wrapper so the [SenderRaw] can be shared
 pub type Sender = std::sync::Arc<tokio::sync::Mutex<SenderRaw>>;
 
 /// Holds sinks which can be used to send messages to relays
@@ -130,14 +130,17 @@ pub struct SenderRaw {
 
 impl SenderRaw {
 
+    /// Sends event to all sinks it holds
     pub async fn send(&self, event: nostr::Event) {
         network::send_to_all(&event.format(), self.sinks.clone()).await;
     }
 
+    /// Sends string to all sinks it holds
     pub async fn send_str(&self, message: &str) {
         network::send_to_all(message, self.sinks.clone()).await;
     }
 
+    /// Adds new sink
     pub fn add(&mut self, sink: network::Sink) {
         self.sinks.push(sink);
     }
@@ -179,6 +182,10 @@ pub struct Command<State: Clone + Send + Sync> {
 }
 
 impl<State: Clone + Send + Sync> Command<State> {
+
+    /// Create new description
+    /// * `prefix` Prefix which will be used for commands matching
+    /// * `functor` Functor that is run when bot finds matching command
     pub fn new(prefix: &str, functor: FunctorType<State>) -> Self {
         Self {
             prefix: prefix.to_string(),
@@ -187,7 +194,10 @@ impl<State: Clone + Send + Sync> Command<State> {
         }
     }
 
-    pub fn desc(mut self, description: &str) -> Self {
+    /// Add description for command
+    ///
+    /// This is used by [Bot::help()] when generating !help command
+    pub fn description(mut self, description: &str) -> Self {
         self.description = Some(description.to_string());
         self
     }
@@ -296,7 +306,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
     /// auto-generated list of available commands.
     pub fn help(mut self) -> Self {
         self.user_commands
-            .push(Command::new("!help", wrap_extra!(bot::help_command)).desc("Show this help."));
+            .push(Command::new("!help", wrap_extra!(bot::help_command)).description("Show this help."));
         self
     }
 
