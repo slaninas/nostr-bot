@@ -1,6 +1,7 @@
 use futures_util::StreamExt;
 use log::{debug, info, warn};
 use rand::Rng;
+use std::fmt::Write;
 
 use crate::*;
 
@@ -106,7 +107,7 @@ impl<State: Clone + Send + Sync> Bot<State> {
 
             let command = message.content.content.clone();
             let words = command.split_whitespace().collect::<Vec<_>>();
-            if words.len() == 0 {
+            if words.is_empty() {
                 continue;
             }
             let command_part = words[0];
@@ -118,7 +119,7 @@ impl<State: Clone + Send + Sync> Bot<State> {
                 let commands = commands.lock().await;
 
                 for command in commands.iter() {
-                    if command.prefix == "" {
+                    if command.prefix.is_empty() {
                         fallthrough_command = Some(&command.functor);
                         continue;
                     }
@@ -131,14 +132,12 @@ impl<State: Clone + Send + Sync> Bot<State> {
                 let functor_to_call = if let Some(functor) = functor {
                     debug!("Found functor to run, going to run it.");
                     Some(functor)
+                } else if let Some(fallthrough_command) = fallthrough_command {
+                    debug!("Going to call fallthrough command \"\".");
+                    Some(fallthrough_command)
                 } else {
-                    if let Some(fallthrough_command) = fallthrough_command {
-                        debug!("Going to call fallthrough command \"\".");
-                        Some(fallthrough_command)
-                    } else {
-                        debug!("Didn't find command >{}<, ignoring.", command_part);
-                        None
-                    }
+                    debug!("Didn't find command >{}<, ignoring.", command_part);
+                    None
                 };
 
                 if let Some(functor) = functor_to_call {
@@ -179,12 +178,12 @@ impl<State: Clone + Send + Sync> Bot<State> {
                 Some(description) => description,
                 None => "",
             };
-            let prefix = if command.prefix.len() > 0 {
+            let prefix = if !command.prefix.is_empty() {
                 command.prefix.clone()
             } else {
                 "\"\"".to_string()
             };
-            help.push_str(&format!("{}...{}\n", prefix, description));
+            writeln!(help, "{}...{}", prefix, description).unwrap();
         }
 
         help

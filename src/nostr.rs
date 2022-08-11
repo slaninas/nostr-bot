@@ -161,7 +161,7 @@ pub fn get_profile_event(
 
 pub fn format_reply(reply_to: Event, content: String) -> EventNonSigned {
     EventNonSigned {
-        content: content,
+        content,
         created_at: crate::utils::unix_timestamp(),
         kind: 1,
         tags: tags_for_reply(reply_to),

@@ -176,7 +176,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         let mut user_commands = vec![];
         std::mem::swap(&mut user_commands, &mut self.user_commands);
         *self.commands.lock().await = user_commands;
-        if let None = self.streams {
+        if self.streams.is_none() {
             debug!("Running run() but there is no connection yet. Connecting now.");
             self.connect().await;
         }
