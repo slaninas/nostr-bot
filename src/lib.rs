@@ -73,7 +73,6 @@ impl<State: Clone + Send + Sync> Command<State> {
     }
 }
 
-
 // Macros for easier wrapping
 #[macro_export]
 macro_rules! wrap {
@@ -97,6 +96,7 @@ pub struct Bot<State: Clone + Send + Sync> {
     relays: Vec<url::Url>,
     network_type: network::Network,
 
+    user_commands: bot::UserCommands<State>,
     commands: bot::Commands<State>,
     state: State,
 
@@ -105,7 +105,6 @@ pub struct Bot<State: Clone + Send + Sync> {
     sender: Sender, // TODO: Use Option
     streams: Option<Vec<network::Stream>>,
     to_spawn: Vec<Box<dyn std::future::Future<Output = ()> + Send + Unpin>>,
-
 }
 
 impl<State: Clone + Send + Sync + 'static> Bot<State> {
@@ -120,7 +119,8 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
             relays,
             network_type,
 
-            commands: std::sync::Arc::new(std::sync::Mutex::new(vec![])),
+            user_commands: vec![],
+            commands: std::sync::Arc::new(tokio::sync::Mutex::new(vec![])),
             state,
 
             profile: bot::Profile::new(),
@@ -151,16 +151,14 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         self
     }
 
-    pub fn help(self) -> Self {
-        self.commands
-            .lock()
-            .unwrap()
+    pub fn help(mut self) -> Self {
+        self.user_commands
             .push(Command::new("!help", wrap_extra!(bot::help_command)).desc("Show this help."));
         self
     }
 
-    pub fn command(self, command: Command<State>) -> Self {
-        self.commands.lock().unwrap().push(command);
+    pub fn command(mut self, command: Command<State>) -> Self {
+        self.user_commands.push(command);
         self
     }
 
@@ -175,6 +173,9 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
     }
 
     pub async fn run(&mut self) {
+        let mut user_commands = vec![];
+        std::mem::swap(&mut user_commands, &mut self.user_commands);
+        *self.commands.lock().await = user_commands;
         if let None = self.streams {
             debug!("Running run() but there is no connection yet. Connecting now.");
             self.connect().await;

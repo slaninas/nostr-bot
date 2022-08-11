@@ -4,7 +4,8 @@ use rand::Rng;
 
 use crate::*;
 
-pub(super) type Commands<State> = std::sync::Arc<std::sync::Mutex<Vec<Command<State>>>>;
+pub(super) type UserCommands<State> = Vec<Command<State>>;
+pub(super) type Commands<State> = std::sync::Arc<tokio::sync::Mutex<UserCommands<State>>>;
 
 // Implementation of internal Bot methods
 
@@ -87,7 +88,7 @@ impl<State: Clone + Send + Sync> Bot<State> {
         let mut handled_events = std::collections::HashSet::new();
 
         let bot_info = BotInfo {
-            help: self.generate_help(),
+            help: self.generate_help().await,
             sender: self.sender.clone(),
         };
 
@@ -114,7 +115,7 @@ impl<State: Clone + Send + Sync> Bot<State> {
                 let mut fallthrough_command = None;
                 let mut functor = None;
 
-                let commands = commands.lock().unwrap();
+                let commands = commands.lock().await;
 
                 for command in commands.iter() {
                     if command.prefix == "" {
@@ -165,14 +166,14 @@ impl<State: Clone + Send + Sync> Bot<State> {
         }
     }
 
-    fn generate_help(&self) -> String {
+    async fn generate_help(&self) -> String {
         let mut help = match self.profile.about.clone() {
             Some(about) => about,
             None => String::new(),
         };
 
         help.push_str("\n\nAvailable commands:\n");
-        let commands = self.commands.lock().unwrap();
+        let commands = self.commands.lock().await;
         for command in commands.iter() {
             let description = match &command.description {
                 Some(description) => description,
