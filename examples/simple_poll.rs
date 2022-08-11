@@ -26,18 +26,18 @@ async fn yes(event: Event, state: State) -> EventNonSigned {
 
     // Use given formatted voting results and use it to create new event
     // that is a reply to the incoming command
-    format_reply(event, format_results(&votes.question, &votes))
+    get_reply(event, format_results(&votes.question, &votes))
 }
 
 async fn no(event: Event, state: State) -> EventNonSigned {
     let mut votes = state.lock().await;
     votes.no += 1;
-    format_reply(event, format_results(&votes.question, &votes))
+    get_reply(event, format_results(&votes.question, &votes))
 }
 
 async fn results(event: Event, state: State) -> EventNonSigned {
     let votes = state.lock().await;
-    format_reply(event, format_results(&votes.question, &votes))
+    get_reply(event, format_results(&votes.question, &votes))
 }
 
 #[tokio::main]

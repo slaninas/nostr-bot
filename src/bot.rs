@@ -199,7 +199,7 @@ pub(super) async fn help_command<State>(
     _state: State,
     bot_info: BotInfo,
 ) -> nostr::EventNonSigned {
-    nostr::format_reply(event, bot_info.help)
+    nostr::get_reply(event, bot_info.help)
 }
 
 type NostrMessageReceiver = tokio::sync::mpsc::Receiver<nostr::Message>;

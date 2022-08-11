@@ -7,7 +7,7 @@ mod nostr;
 pub mod utils;
 
 pub use network::ConnectionType;
-pub use nostr::{format_reply, tags_for_reply, Event, EventNonSigned};
+pub use nostr::{get_reply, tags_for_reply, Event, EventNonSigned};
 
 pub type State<T> = std::sync::Arc<tokio::sync::Mutex<T>>;
 

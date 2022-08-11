@@ -159,7 +159,7 @@ pub fn get_profile_event(
     }
 }
 
-pub fn format_reply(reply_to: Event, content: String) -> EventNonSigned {
+pub fn get_reply(reply_to: Event, content: String) -> EventNonSigned {
     EventNonSigned {
         content,
         created_at: crate::utils::unix_timestamp(),
