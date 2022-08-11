@@ -5,8 +5,10 @@ pub fn unix_timestamp() -> u64 {
         .as_secs()
 }
 
-pub fn get_random_keypair() -> secp256k1::KeyPair {
+pub fn keypair_from_secret(secret: &str) -> secp256k1::KeyPair {
     let secp = secp256k1::Secp256k1::new();
-    let secret = secp256k1::SecretKey::new(&mut rand::thread_rng());
-    secret.keypair(&secp)
+    secp256k1::KeyPair::from_seckey_str(
+        &secp, secret,
+    )
+    .unwrap()
 }
