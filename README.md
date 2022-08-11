@@ -1,7 +1,7 @@
 Do you want to run your own nostr bot? You've come to the right place.
 This crate makes it easy for you to implement bot that reacts to the nostr events.
 
-# Usage
+## Usage
 This crate is on [crates.io](https://crates.io/crates/nostr-bot) and can be
 used by adding `nostr-bot` to your dependencies in your project's `Cargo.toml`.
 
@@ -16,7 +16,7 @@ nostr-bot = "0.1"
 ```
 Go to [Bot] to see main struct of the crate.
 
-# Example
+## Example
 ```rust
 // Bot that reacts to '!yes', '!no' and '!results' commands.
 use nostr_bot::*;
@@ -86,7 +86,7 @@ async fn main() {
         no: 0,
     });
 
-    // Setup the bot - add info about it, add commands and then run it
+    // And now the Bot
     Bot::new(keypair, relays, shared_state)
         // You don't have to set these but then the bot will have incomplete profile info :(
         .name("poll_bot")
