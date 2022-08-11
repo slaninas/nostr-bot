@@ -61,7 +61,7 @@ impl<State: Clone + Send + Sync> Bot<State> {
             );
 
             info!("main bot is sending message \"{}\"", message);
-            self.sender.lock().await.send(welcome.format()).await;
+            self.sender.lock().await.send(welcome).await;
         };
 
         let mut to_spawn = vec![];
@@ -163,7 +163,7 @@ impl<State: Clone + Send + Sync> Bot<State> {
                 sender
                     .lock()
                     .await
-                    .send(response.sign(keypair).format())
+                    .send(response.sign(keypair))
                     .await;
             }
         }
@@ -237,8 +237,7 @@ pub(super) async fn set_profile(
 
     // Set profile
     let message = nostr::get_profile_event(name, about, picture_url)
-        .sign(keypair)
-        .format();
+        .sign(keypair);
 
     sender.lock().await.send(message).await;
 }

@@ -83,9 +83,9 @@ pub enum ConnectionType {
     Socks5,
 }
 
-pub async fn send_to_all(msg: String, sinks: Vec<Sink>) {
+pub async fn send_to_all(msg: &str, sinks: Vec<Sink>) {
     for sink in sinks {
-        send(msg.clone(), sink).await;
+        send(msg.to_string(), sink).await;
     }
 }
 

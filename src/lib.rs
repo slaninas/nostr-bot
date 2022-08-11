@@ -129,7 +129,12 @@ pub struct SenderRaw {
 }
 
 impl SenderRaw {
-    pub async fn send(&self, message: String) {
+
+    pub async fn send(&self, event: nostr::Event) {
+        network::send_to_all(&event.format(), self.sinks.clone()).await;
+    }
+
+    pub async fn send_str(&self, message: &str) {
         network::send_to_all(message, self.sinks.clone()).await;
     }
 

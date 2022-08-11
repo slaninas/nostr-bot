@@ -50,7 +50,7 @@ async fn main() {
         url::Url::parse("wss://relay.nostr.info").unwrap(),
     ];
 
-    let keypair = utils::keypair_from_secret(
+    let keypair = keypair_from_secret(
         // Your secret goes here
         "0000000000000000000000000000000000000000000000000000000000000001",
     );
