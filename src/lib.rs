@@ -109,11 +109,7 @@ pub struct Bot<State: Clone + Send + Sync> {
 }
 
 impl<State: Clone + Send + Sync + 'static> Bot<State> {
-    pub fn new(
-        keypair: secp256k1::KeyPair,
-        relays: Vec<url::Url>,
-        state: State,
-    ) -> Self {
+    pub fn new(keypair: secp256k1::KeyPair, relays: Vec<url::Url>, state: State) -> Self {
         Bot {
             keypair,
             relays,
@@ -172,7 +168,6 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         self.sender = sender;
         self
     }
-
 
     pub fn use_socks5(mut self, proxy_addr: url::Url) -> Self {
         self.connection_type = ConnectionType::Socks5;

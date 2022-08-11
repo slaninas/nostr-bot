@@ -255,7 +255,11 @@ async fn connect_proxy(
     let onion_addr = format!("{}:{}", host, port);
     debug!("onion_addr {}:{}", host, port);
 
-    let socks5_addr = format!("{}:{}", proxy_addr.host_str().expect("Unable to parse socks5 host."), proxy_addr.port().expect("Unable to parse socks5 port."));
+    let socks5_addr = format!(
+        "{}:{}",
+        proxy_addr.host_str().expect("Unable to parse socks5 host."),
+        proxy_addr.port().expect("Unable to parse socks5 port.")
+    );
     debug!("socks5 addr {}", socks5_addr);
 
     let socket = TcpStream::connect(socks5_addr.as_str()).await?;
