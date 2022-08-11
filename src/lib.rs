@@ -13,7 +13,9 @@ so If you want to make sure the API stays compatible with your code commit to a 
 ```toml
 [dependencies]
 nostr-bot = "0.1"
+
 ```
+Go to [Bot] to see main struct of the crate.
 
 # Example
 ```rust
@@ -218,6 +220,9 @@ pub struct Bot<State: Clone + Send + Sync> {
 
 impl<State: Clone + Send + Sync + 'static> Bot<State> {
     /// Basic initialization of the bot
+    /// * `keypair` This keypair will be used by the bot to sign messages
+    /// * `relays` List of relays to which the bot will connect to
+    /// * `state` Shared object that will be passed to invoked commands, see [Bot::command()]
     pub fn new(keypair: secp256k1::KeyPair, relays: Vec<url::Url>, state: State) -> Self {
         Bot {
             keypair,
@@ -270,7 +275,9 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
     }
 
     /// Generate "manpage"
-    /// This adds !help command. When invoked it shows info about bot set in [Bot::about()] and
+    ///
+    /// This adds !help command.
+    /// When invoked it shows info about bot set in [Bot::about()] and
     /// auto-generated list of available commands.
     pub fn help(mut self) -> Self {
         self.user_commands
@@ -278,7 +285,8 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         self
     }
 
-    /// Register `command`
+    /// Register `command`.
+    ///
     /// When someone replies to a bot, the bot goes through all registered commands and when it
     /// finds match it invokes given functor
     pub fn command(mut self, command: Command<State>) -> Self {
@@ -287,24 +295,30 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
     }
 
     /// Spawn a task using [tokio::spawn]
-    /// * `future` Future is saved and the task is spawned after the bot connects to relays in
-    /// [Bot::run].
+    /// * `future` Future is saved and the task is spawned when [Bot::run] is called and bot
+    /// connects to the relays
     pub fn spawn(mut self, future: impl Future<Output = ()> + Unpin + Send + 'static) -> Self {
         self.to_spawn.push(Box::new(future));
         self
     }
 
+    /// Set sender
+    /// * `sender` Sender that will be used by bot to send nostr messages to relays
     pub fn sender(mut self, sender: Sender) -> Self {
         self.sender = sender;
         self
     }
 
+    /// Tell the bot to use socks5 proxy instead of direct connection to the internet
+    /// * `proxy_addr` Address of the proxy including port, e.g. `127.0.0.1:9050`
     pub fn use_socks5(mut self, proxy_addr: url::Url) -> Self {
         self.connection_type = ConnectionType::Socks5;
         self.proxy_addr = Some(proxy_addr);
         self
     }
 
+    /// Connect to relays, set bot's profile, send message if set using [Bot::intro_message],
+    /// spawn tasks if given prior by [Bot::spawn()] and listern to commandss
     pub async fn run(&mut self) {
         let mut user_commands = vec![];
         std::mem::swap(&mut user_commands, &mut self.user_commands);
