@@ -8,6 +8,8 @@ mod network;
 mod nostr;
 mod utils;
 
+pub extern crate tokio;
+
 pub use utils::{unix_timestamp, keypair_from_secret};
 pub use network::ConnectionType;
 pub use nostr::{get_reply, tags_for_reply, Event, EventNonSigned};
