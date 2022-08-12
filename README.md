@@ -1,10 +1,10 @@
 Do you want to run your own nostr bot? You've come to the right place.
-This crate makes it easy to implement your own bot that reacts to [nostr](https://github.com/nostr-protocol/nostr) events, using [tokio].
+This crate makes it easy to implement your own bot that reacts to [nostr](https://github.com/nostr-protocol/nostr) events, using [tokio](https://github.com/tokio-rs/tokio).
 
 ## Usage
 Be aware that this crate is still being developed and until 1.0 is out there may be API breaking changes
 even in MINOR (see [SemVer](https://semver.org/)) releases, PATCHES should be compatible
-so If you want highly increase changes that the API stays compatible with your code commit to a specific MAJOR.MINOR version:
+so If you want to highly increase changes that the API stays compatible with your code commit to a specific MAJOR.MINOR version:
 
 This crate is on [crates.io](https://crates.io/crates/nostr-bot) and can be
 used by adding `nostr-bot` to your dependencies in your project's `Cargo.toml`.
