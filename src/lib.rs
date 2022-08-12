@@ -122,9 +122,9 @@ macro_rules! wrap_extra {
 /// Main sctruct that holds every data necessary to run a bot
 pub struct Bot<State: Clone + Send + Sync> {
     keypair: secp256k1::KeyPair,
-    relays: Vec<url::Url>,
+    relays: Vec<String>,
     connection_type: ConnectionType,
-    proxy_addr: Option<url::Url>,
+    proxy_addr: Option<String>,
 
     user_commands: bot::UserCommands<State>,
     commands: bot::Commands<State>,
@@ -142,10 +142,10 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
     /// * `keypair` This keypair will be used by the bot to sign messages
     /// * `relays` List of relays to which the bot will connect to
     /// * `state` Shared object that will be passed to invoked commands, see [Bot::command()]
-    pub fn new(keypair: secp256k1::KeyPair, relays: Vec<url::Url>, state: State) -> Self {
+    pub fn new(keypair: secp256k1::KeyPair, relays: Vec<&str>, state: State) -> Self {
         Bot {
             keypair,
-            relays,
+            relays: relays.iter().map(|s| s.to_string()).collect(),
             connection_type: ConnectionType::Direct,
             proxy_addr: None,
 
@@ -231,9 +231,9 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
     /// Tells the bot to use socks5 proxy instead of direct connection to the internet
     /// If you need anonymity please **check yourself there are no leaks**.
     /// * `proxy_addr` Address of the proxy including port, e.g. `127.0.0.1:9050`
-    pub fn use_socks5(mut self, proxy_addr: url::Url) -> Self {
+    pub fn use_socks5(mut self, proxy_addr: &str) -> Self {
         self.connection_type = ConnectionType::Socks5;
-        self.proxy_addr = Some(proxy_addr);
+        self.proxy_addr = Some(proxy_addr.to_string());
         self
     }
 
@@ -261,7 +261,7 @@ pub struct BotInfo {
 
 impl BotInfo {
     /// Returns list of relays to which the bot is able to send a message
-    pub async fn connected_relays(&self) -> Vec<url::Url> {
+    pub async fn connected_relays(&self) -> Vec<String> {
         let sender = self.sender.clone();
         let sinks = sender.lock().await.sinks.clone();
 

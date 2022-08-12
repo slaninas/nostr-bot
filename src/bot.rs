@@ -315,7 +315,7 @@ async fn listen_relay(
     sink: network::Sink,
     main_bot_tx: NostrMessageSender,
     main_bot_keypair: secp256k1::KeyPair,
-    proxy_addr: Option<url::Url>,
+    proxy_addr: Option<String>,
 ) {
     info!("Relay listener for {} started.", sink.peer_addr);
     let peer_addr = sink.peer_addr.clone();

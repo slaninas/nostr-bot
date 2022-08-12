@@ -40,7 +40,7 @@ pub enum StreamType {
 #[derive(Clone)]
 pub struct Sink {
     pub sink: SinkType,
-    pub peer_addr: url::Url,
+    pub peer_addr: String,
 }
 
 impl Sink {
@@ -74,7 +74,7 @@ impl Sink {
 
 pub struct Stream {
     pub stream: StreamType,
-    pub peer_addr: url::Url,
+    pub peer_addr: String,
 }
 
 /// Direct connection to the internet or would you rather like a socks5 proxy?
@@ -152,9 +152,9 @@ pub async fn ping(sink_wrap: Sink) -> bool {
 }
 
 pub async fn try_connect(
-    relays: &Vec<url::Url>,
+    relays: &Vec<String>,
     network: &ConnectionType,
-    proxy_addr: &Option<url::Url>,
+    proxy_addr: &Option<String>,
 ) -> (Vec<Sink>, Vec<Stream>) {
     let mut sinks = vec![];
     let mut streams = vec![];
@@ -172,9 +172,9 @@ pub async fn try_connect(
 }
 
 pub async fn get_connection(
-    relay: &url::Url,
+    relay: &String,
     network: &ConnectionType,
-    proxy_addr: &Option<url::Url>,
+    proxy_addr: &Option<String>,
 ) -> Result<(Sink, Stream), String> {
     match network {
         ConnectionType::Socks5 => {
@@ -229,7 +229,7 @@ pub async fn get_connection(
     }
 }
 
-async fn connect(relay: &url::Url) -> Result<WebSocket, tungstenite::Error> {
+async fn connect(relay: &String) -> Result<WebSocket, tungstenite::Error> {
     info!("Connecting to {} using direct internet connection.", relay);
     let (ws_stream, _response) = tokio_tungstenite::connect_async(relay).await?;
     info!("Connected to {}", relay);
@@ -237,33 +237,19 @@ async fn connect(relay: &url::Url) -> Result<WebSocket, tungstenite::Error> {
 }
 
 async fn connect_proxy(
-    relay: &url::Url,
-    proxy_addr: &url::Url,
+    relay: &String,
+    proxy_addr: &String,
 ) -> Result<WebSocketSocks5, tungstenite::Error> {
     info!("Connecting to {} using socks5", relay);
     let ws_onion_addr = relay;
 
-    let host = match ws_onion_addr.host_str() {
-        Some(addr) => addr,
-        None => panic!("Unable to parse >{}<", ws_onion_addr),
-    };
+    let onion_addr = relay.split('/').collect::<Vec<_>>()[2];
 
-    let port = match ws_onion_addr.port() {
-        Some(port) => port.to_string(),
-        None => "".to_string(),
-    };
+    debug!("onion_addr {}", onion_addr);
 
-    let onion_addr = format!("{}:{}", host, port);
-    debug!("onion_addr {}:{}", host, port);
+    debug!("proxy addr {}", proxy_addr);
 
-    let socks5_addr = format!(
-        "{}:{}",
-        proxy_addr.host_str().expect("Unable to parse socks5 host."),
-        proxy_addr.port().expect("Unable to parse socks5 port.")
-    );
-    debug!("socks5 addr {}", socks5_addr);
-
-    let socket = TcpStream::connect(socks5_addr.as_str()).await?;
+    let socket = TcpStream::connect(proxy_addr).await?;
     socket.set_nodelay(true).unwrap();
     let conn = Socks5Stream::connect_with_socket(socket, onion_addr)
         .await

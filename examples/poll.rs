@@ -88,9 +88,9 @@ async fn main() {
     nostr_bot::init_logger();
 
     let relays = vec![
-        url::Url::parse("wss://nostr-pub.wellorder.net").unwrap(),
-        url::Url::parse("wss://relay.damus.io").unwrap(),
-        url::Url::parse("wss://relay.nostr.info").unwrap(),
+        String::from("wss://nostr-pub.wellorder.net"),
+        String::from("wss://relay.damus.io"),
+        String::from("wss://relay.nostr.info"),
     ];
 
     let mut secret = std::fs::read_to_string("secret").unwrap();

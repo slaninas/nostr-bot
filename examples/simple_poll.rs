@@ -45,9 +45,9 @@ async fn main() {
     init_logger();
 
     let relays = vec![
-        url::Url::parse("wss://nostr-pub.wellorder.net").unwrap(),
-        url::Url::parse("wss://relay.damus.io").unwrap(),
-        url::Url::parse("wss://relay.nostr.info").unwrap(),
+        "wss://nostr-pub.wellorder.net",
+        "wss://relay.damus.io",
+        "wss://relay.nostr.info",
     ];
 
     let keypair = keypair_from_secret(
