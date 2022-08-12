@@ -3,6 +3,15 @@ name = "nostr-bot"
 version = "0.1.0"
 edition = "2021"
 
+license-file = "LICENSE"
+description = "Nostr bot library"
+documentation = "https://docs.rs/nostr-bot"
+repository = "https://github.com/slaninas/nostr-bot"
+readme = "README.md"
+
+keywords = ["nostr", "bot"]
+categories = ["asynchronous", "network-programming"]
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
