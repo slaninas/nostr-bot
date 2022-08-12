@@ -1,4 +1,4 @@
-// Example of a voting bot that reacts to '!yes', '!no' and '!results' commands.
+// Bot that reacts to '!yes', '!no' and '!results' commands.
 use nostr_bot::*;
 
 // Your struct that will be passed to the commands responses
@@ -17,9 +17,9 @@ fn format_results(question: &str, votes: &Votes) -> String {
     )
 }
 
-// Command responses, you are getting nostr event and shared state as
-// arguments and you are supposed to return non-signed event
-// which is then signed using the bot's key and send to relays
+// Following functions are command responses, you are getting nostr event
+// and shared state as arguments and you are supposed to return non-signed
+// event which is then signed using the bot's key and send to relays
 async fn yes(event: Event, state: State) -> EventNonSigned {
     let mut votes = state.lock().await;
     votes.yes += 1;
@@ -64,7 +64,7 @@ async fn main() {
         no: 0,
     });
 
-    // Setup the bot - add info about it, add commands and then run it
+    // And now the Bot
     Bot::new(keypair, relays, shared_state)
         // You don't have to set these but then the bot will have incomplete profile info :(
         .name("poll_bot")

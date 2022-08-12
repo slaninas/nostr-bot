@@ -52,7 +52,7 @@ fn format_results(question: &str, votes: &Votes) -> String {
 
 // Following functions are command responses, you are getting nostr event
 // and shared state as arguments and you are supposed to return non-signed
-// eventwhich is then signed using the bot's key and send to relays
+// event which is then signed using the bot's key and send to relays
 async fn yes(event: Event, state: State) -> EventNonSigned {
     let mut votes = state.lock().await;
     votes.yes += 1;
@@ -78,14 +78,12 @@ async fn main() {
     init_logger();
 
     let relays = vec![
-        // url::Url::parse("wss://nostr-pub.wellorder.net").unwrap(),
-        // url::Url::parse("wss://relay.damus.io").unwrap(),
-        // url::Url::parse("wss://relay.nostr.info").unwrap(),
-        url::Url::parse("ws://192.168.1.103:8889").unwrap(),
-        url::Url::parse("ws://192.168.1.103:8890").unwrap(),
+        "wss://nostr-pub.wellorder.net",
+        "wss://relay.damus.io",
+        "wss://relay.nostr.info",
     ];
 
-    let keypair = utils::keypair_from_secret(
+    let keypair = keypair_from_secret(
         // Your secret goes here
         "0000000000000000000000000000000000000000000000000000000000000001",
     );
@@ -104,8 +102,7 @@ async fn main() {
         // You don't have to set these but then the bot will have incomplete profile info :(
         .name("poll_bot")
         .about("Just a bot.")
-        .picture("https://thumbs.dreamstime.com/z/poll-survey-results-voting-election-\
-                  opinion-word-red-d-letters-pie-chart-to-illustrate-opinions-61587174.jpg")
+        .picture("https://i.imgur.com/ij4XprK.jpeg")
         .intro_message(&question)
         // You don't have to specify any command but then what will the bot do? Nothing.
         .command(Command::new("!yes", wrap!(yes)))
@@ -114,3 +111,4 @@ async fn main() {
         // And finally run it
         .run().await;
 }
+```
