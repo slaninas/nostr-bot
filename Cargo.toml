@@ -3,7 +3,7 @@ name = "nostr-bot"
 version = "0.1.0"
 edition = "2021"
 
-license-file = "LICENSE"
+license = "MIT"
 description = "Nostr bot library"
 documentation = "https://docs.rs/nostr-bot"
 repository = "https://github.com/slaninas/nostr-bot"
