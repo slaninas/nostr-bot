@@ -59,7 +59,7 @@ async fn yes(event: Event, state: State) -> EventNonSigned {
     let mut votes = state.lock().await;
     votes.yes += 1;
 
-    // Use given formatted voting results and use it to create new event
+    // Use formatted voting results to create new event
     // that is a reply to the incoming command
     get_reply(event, format_results(&votes.question, &votes))
 }
