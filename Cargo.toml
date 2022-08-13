@@ -13,6 +13,8 @@ keywords = ["nostr", "bot"]
 categories = ["asynchronous", "network-programming"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+doctest = false # TODO: set to true and disable test run only for example in README.md
 
 [dependencies]
 futures-util = "0.3.21"
