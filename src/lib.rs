@@ -10,9 +10,9 @@ mod utils;
 
 pub extern crate tokio;
 
-pub use utils::{unix_timestamp, keypair_from_secret};
 pub use network::ConnectionType;
 pub use nostr::{get_reply, tags_for_reply, Event, EventNonSigned};
+pub use utils::{keypair_from_secret, unix_timestamp};
 
 pub type State<T> = std::sync::Arc<tokio::sync::Mutex<T>>;
 
@@ -25,7 +25,6 @@ pub struct SenderRaw {
 }
 
 impl SenderRaw {
-
     /// Sends event to all sinks it holds
     pub async fn send(&self, event: nostr::Event) {
         network::send_to_all(&event.format(), self.sinks.clone()).await;
@@ -78,7 +77,6 @@ pub struct Command<State: Clone + Send + Sync> {
 }
 
 impl<State: Clone + Send + Sync> Command<State> {
-
     /// Create new description
     /// * `prefix` Prefix which will be used for commands matching
     /// * `functor` Functor that is run when bot finds matching command
@@ -201,8 +199,9 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
     /// When invoked it shows info about bot set in [Bot::about()] and
     /// auto-generated list of available commands.
     pub fn help(mut self) -> Self {
-        self.user_commands
-            .push(Command::new("!help", wrap_extra!(bot::help_command)).description("Show this help."));
+        self.user_commands.push(
+            Command::new("!help", wrap_extra!(bot::help_command)).description("Show this help."),
+        );
         self
     }
 
@@ -250,7 +249,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
             self.connect().await;
         }
 
-        self.really_run(self.state.clone()).await;
+        self.really_run().await;
     }
 }
 

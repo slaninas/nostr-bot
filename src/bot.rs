@@ -21,7 +21,7 @@ impl<State: Clone + Send + Sync> Bot<State> {
         self.streams = Some(streams);
     }
 
-    pub(super) async fn really_run(&mut self, state: State) {
+    pub(super) async fn really_run(&mut self) {
         set_profile(
             &self.keypair,
             self.sender.clone(),
@@ -71,24 +71,13 @@ impl<State: Clone + Send + Sync> Bot<State> {
             tokio::spawn(fut);
         }
 
-        let commands = self.commands.clone();
-        self.main_bot_listener(
-            state.clone(),
-            self.sender.clone(),
-            main_bot_rx,
-            &keypair,
-            commands,
-        )
-        .await
+        self.main_bot_listener(main_bot_rx, &keypair).await
     }
 
     pub(super) async fn main_bot_listener(
         &self,
-        state: State,
-        sender: Sender,
         mut rx: NostrMessageReceiver,
         keypair: &secp256k1::KeyPair,
-        commands: Commands<State>,
     ) {
         let mut handled_events = std::collections::HashSet::new();
 
@@ -109,62 +98,13 @@ impl<State: Clone + Send + Sync> Bot<State> {
 
             debug!("Handling {}", message.content.format());
 
-            let command = message.content.content.clone();
-            let words = command.split_whitespace().collect::<Vec<_>>();
-            if words.is_empty() {
-                continue;
-            }
-            let command_part = words[0];
-
-            let response = {
-                let mut fallthrough_command = None;
-                let mut functor = None;
-
-                let commands = commands.lock().await;
-
-                for command in commands.iter() {
-                    if command.prefix.is_empty() {
-                        fallthrough_command = Some(&command.functor);
-                        continue;
-                    }
-
-                    if command_part.starts_with(&command.prefix) {
-                        functor = Some(&command.functor);
-                    }
-                }
-
-                let functor_to_call = if let Some(functor) = functor {
-                    debug!("Found functor to run, going to run it.");
-                    Some(functor)
-                } else if let Some(fallthrough_command) = fallthrough_command {
-                    debug!("Going to call fallthrough command \"\".");
-                    Some(fallthrough_command)
-                } else {
-                    debug!("Didn't find command >{}<, ignoring.", command_part);
-                    None
-                };
-
-                if let Some(functor) = functor_to_call {
-                    match functor {
-                        FunctorType::Basic(functor) => {
-                            Some((functor)(message.content, state.clone()).await)
-                        }
-                        FunctorType::Extra(functor) => {
-                            Some((functor)(message.content, state.clone(), bot_info.clone()).await)
-                        }
-                    }
-                } else {
-                    None
-                }
-            };
+            let response = self
+                .execute_command(message.content, bot_info.clone())
+                .await;
 
             if let Some(response) = response {
                 let response = response;
-                sender
-                    .lock()
-                    .await
-                    .send(response.sign(keypair))
-                    .await;
+                self.sender.lock().await.send(response.sign(keypair)).await;
             }
         }
     }
@@ -191,6 +131,59 @@ impl<State: Clone + Send + Sync> Bot<State> {
         }
 
         help
+    }
+
+    async fn execute_command(
+        &self,
+        command_event: Event,
+        bot_info: BotInfo,
+    ) -> Option<EventNonSigned> {
+        let command = command_event.content.clone();
+        let words = command.split_whitespace().collect::<Vec<_>>();
+        if words.is_empty() {
+            return None;
+        }
+
+        let command_part = words[0];
+        let mut fallthrough_command = None;
+        let mut functor = None;
+
+        let commands = self.commands.lock().await;
+
+        for command in commands.iter() {
+            if command.prefix.is_empty() {
+                fallthrough_command = Some(&command.functor);
+                continue;
+            }
+
+            if command_part.starts_with(&command.prefix) {
+                functor = Some(&command.functor);
+            }
+        }
+
+        let functor_to_call = if let Some(functor) = functor {
+            debug!("Found functor to run, going to run it.");
+            Some(functor)
+        } else if let Some(fallthrough_command) = fallthrough_command {
+            debug!("Going to call fallthrough command \"\".");
+            Some(fallthrough_command)
+        } else {
+            debug!("Didn't find command >{}<, ignoring.", command);
+            None
+        };
+
+        if let Some(functor) = functor_to_call {
+            match functor {
+                FunctorType::Basic(functor) => {
+                    Some((functor)(command_event, self.state.clone()).await)
+                }
+                FunctorType::Extra(functor) => {
+                    Some((functor)(command_event, self.state.clone(), bot_info).await)
+                }
+            }
+        } else {
+            None
+        }
     }
 }
 
@@ -236,8 +229,7 @@ pub(super) async fn set_profile(
     );
 
     // Set profile
-    let message = nostr::get_profile_event(name, about, picture_url)
-        .sign(keypair);
+    let message = nostr::get_profile_event(name, about, picture_url).sign(keypair);
 
     sender.lock().await.send(message).await;
 }
