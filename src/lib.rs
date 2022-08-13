@@ -27,7 +27,6 @@ pub struct SenderRaw {
 impl SenderRaw {
     /// Sends event to all sinks it holds
     pub async fn send(&self, event: nostr::Event) {
-        let x = 9;
         network::send_to_all(&event.format(), self.sinks.clone()).await;
     }
 
