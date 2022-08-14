@@ -9,6 +9,7 @@ mod nostr;
 mod utils;
 
 pub extern crate tokio;
+pub extern crate secp256k1;
 
 pub use network::ConnectionType;
 pub use nostr::{get_reply, tags_for_reply, Event, EventNonSigned};
