@@ -8,8 +8,9 @@ mod network;
 mod nostr;
 mod utils;
 
-pub extern crate tokio;
+pub extern crate log;
 pub extern crate secp256k1;
+pub extern crate tokio;
 
 pub use network::ConnectionType;
 pub use nostr::{get_reply, tags_for_reply, Event, EventNonSigned};
