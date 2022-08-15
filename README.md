@@ -3,7 +3,7 @@ This crate makes it easy to implement your own bot that reacts to [nostr](https:
 
 This crate is young and still being developed so there may be hiccups. If you find any issue, don't hesitate to create PR/issue on [GitHub](https://github.com/slaninas/nostr-bot).
 
-Full documentation is avaiable [here](https://docs.rs/nostr-bot/latest/nostr_bot/).
+Full documentation is available [here](https://docs.rs/nostr-bot/latest/nostr_bot/).
 
 ## Usage
 
