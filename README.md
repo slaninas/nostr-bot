@@ -96,7 +96,7 @@ async fn main() {
     let question = String::from("Do you think Pluto should be a planet?");
 
     // Wrap your object into Arc<Mutex> so it can be shared among command handlers
-    let shared_state = nostr_bot::wrap_state(Votes {
+    let shared_state = wrap_state(Votes {
         question: question.clone(),
         yes: 0,
         no: 0,
