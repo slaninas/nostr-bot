@@ -71,7 +71,7 @@ pub enum FunctorType<State> {
 
 // Commands
 
-/// Holds info about invocable commands
+/// Holds info about invocable commands.
 pub struct Command<State: Clone + Send + Sync> {
     pub prefix: String,
     pub description: Option<String>,
@@ -79,9 +79,9 @@ pub struct Command<State: Clone + Send + Sync> {
 }
 
 impl<State: Clone + Send + Sync> Command<State> {
-    /// Create new description
-    /// * `prefix` Prefix which will be used for commands matching
-    /// * `functor` Functor that is run when bot finds matching command
+    /// Create new description.
+    /// * `prefix` Prefix which will be used for commands matching.
+    /// * `functor` Functor that is run when bot finds matching command.
     pub fn new(prefix: &str, functor: FunctorType<State>) -> Self {
         Self {
             prefix: prefix.to_string(),
@@ -90,9 +90,9 @@ impl<State: Clone + Send + Sync> Command<State> {
         }
     }
 
-    /// Add description for command
+    /// Add description for command.
     ///
-    /// This is used by [Bot::help()] when generating !help command
+    /// This is used by [Bot::help()] when generating !help command.
     pub fn description(mut self, description: &str) -> Self {
         self.description = Some(description.to_string());
         self
@@ -101,7 +101,7 @@ impl<State: Clone + Send + Sync> Command<State> {
 
 // Macros for easier wrapping
 
-/// Wraps your functor so it can be passed to the bot
+/// Wraps your functor so it can be passed to the bot.
 #[macro_export]
 macro_rules! wrap {
     ($functor:expr) => {
@@ -109,7 +109,7 @@ macro_rules! wrap {
     };
 }
 
-/// Wraps your functor so it can be passed to the bot
+/// Wraps your functor so it can be passed to the bot.
 #[macro_export]
 macro_rules! wrap_extra {
     ($functor:expr) => {
@@ -121,7 +121,7 @@ macro_rules! wrap_extra {
 
 // Bot stuff
 
-/// Main sctruct that holds every data necessary to run a bot
+/// Main sctruct that holds every data necessary to run a bot.
 pub struct Bot<State: Clone + Send + Sync> {
     keypair: secp256k1::KeyPair,
     relays: Vec<String>,
@@ -140,10 +140,10 @@ pub struct Bot<State: Clone + Send + Sync> {
 }
 
 impl<State: Clone + Send + Sync + 'static> Bot<State> {
-    /// Basic initialization of the bot
-    /// * `keypair` This keypair will be used by the bot to sign messages
-    /// * `relays` List of relays to which the bot will connect to
-    /// * `state` Shared object that will be passed to invoked commands, see [Bot::command()]
+    /// Basic initialization of the bot.
+    /// * `keypair` Key pair that  will be used by the bot to sign messages.
+    /// * `relays` List of relays to which the bot will connect to.
+    /// * `state` Shared object that will be passed to invoked commands, see [Bot::command()].
     pub fn new(keypair: secp256k1::KeyPair, relays: Vec<&str>, state: State) -> Self {
         Bot {
             keypair,
@@ -163,9 +163,9 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         }
     }
 
-    /// Sets bot's name
+    /// Sets bot's name.
     /// * `name` After connecting to relays this name will be send inside set_metadata kind 0 event, see
-    /// <https://github.com/nostr-protocol/nips/blob/master/01.md#basic-event-kinds>
+    /// <https://github.com/nostr-protocol/nips/blob/master/01.md#basic-event-kinds>.
     pub fn name(mut self, name: &str) -> Self {
         self.profile.name = Some(name.to_string());
         self
@@ -174,7 +174,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
     /// Sets bot's about info
     /// * `about` After connecting to relays this info will be send inside set_metadata kind 0 event, see
     /// <https://github.com/nostr-protocol/nips/blob/master/01.md#basic-event-kinds>.
-    /// Also, this is used when generating !help command, see [Bot::help()]
+    /// Also, this is used when generating !help command, see [Bot::help()].
     pub fn about(mut self, about: &str) -> Self {
         self.profile.about = Some(about.to_string());
         self
@@ -182,20 +182,20 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
 
     /// Set bot's profile picture
     /// * `picture_url` After connecting to relays this will be send inside set_metadata kind 0 event, see
-    /// <https://github.com/nostr-protocol/nips/blob/master/01.md#basic-event-kinds>
+    /// <https://github.com/nostr-protocol/nips/blob/master/01.md#basic-event-kinds>.
     pub fn picture(mut self, picture_url: &str) -> Self {
         self.profile.picture_url = Some(picture_url.to_string());
         self
     }
 
-    /// Says hello
-    /// * `message` This message will be send when bot connects to a relay
+    /// Says hello.
+    /// * `message` This message will be send when bot connects to a relay.
     pub fn intro_message(mut self, message: &str) -> Self {
         self.profile.intro_message = Some(message.to_string());
         self
     }
 
-    /// Generates "manpage"
+    /// Generates "manpage".
     ///
     /// This adds !help command.
     /// When invoked it shows info about bot set in [Bot::about()] and
@@ -210,30 +210,30 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
     /// Registers `command`.
     ///
     /// When someone replies to a bot, the bot goes through all registered commands and when it
-    /// finds match it invokes given functor
+    /// finds match it invokes given functor.
     pub fn command(mut self, command: Command<State>) -> Self {
         self.user_commands.push(command);
         self
     }
 
-    /// Adds a task that will be spawned [tokio::spawn]
+    /// Adds a task that will be spawned [tokio::spawn].
     /// * `future` Future is saved and the task is spawned when [Bot::run] is called and bot
-    /// connects to the relays
+    /// connects to the relays.
     pub fn spawn(mut self, future: impl Future<Output = ()> + Unpin + Send + 'static) -> Self {
         self.to_spawn.push(Box::new(future));
         self
     }
 
-    /// Sets sender
-    /// * `sender` Sender that will be used by bot to send nostr messages to relays
+    /// Sets sender.
+    /// * `sender` Sender that will be used by bot to send nostr messages to relays.
     pub fn sender(mut self, sender: Sender) -> Self {
         self.sender = sender;
         self
     }
 
-    /// Tells the bot to use socks5 proxy instead of direct connection to the internet
+    /// Tells the bot to use socks5 proxy instead of direct connection to the internet.
     /// If you need anonymity please **check yourself there are no leaks**.
-    /// * `proxy_addr` Address of the proxy including port, e.g. `127.0.0.1:9050`
+    /// * `proxy_addr` Address of the proxy including port, e.g. `127.0.0.1:9050`.
     pub fn use_socks5(mut self, proxy_addr: &str) -> Self {
         self.connection_type = ConnectionType::Socks5;
         self.proxy_addr = Some(proxy_addr.to_string());
@@ -241,7 +241,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
     }
 
     /// Connects to relays, set bot's profile, send message if set using [Bot::intro_message],
-    /// spawn tasks if given prior by [Bot::spawn()] and listern to commandss
+    /// spawn tasks if given prior by [Bot::spawn()] and listen to commands.
     pub async fn run(&mut self) {
         let mut user_commands = vec![];
         std::mem::swap(&mut user_commands, &mut self.user_commands);
@@ -255,7 +255,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
     }
 }
 
-/// Struct for holding informations about bot
+/// Struct for holding informations about bot.
 #[derive(Clone)]
 pub struct BotInfo {
     help: String,
@@ -263,7 +263,7 @@ pub struct BotInfo {
 }
 
 impl BotInfo {
-    /// Returns list of relays to which the bot is able to send a message
+    /// Returns list of relays to which the bot is able to send a message.
     pub async fn connected_relays(&self) -> Vec<String> {
         let sender = self.sender.clone();
         let sinks = sender.lock().await.sinks.clone();
