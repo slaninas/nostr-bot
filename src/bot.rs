@@ -22,7 +22,6 @@ impl<State: Clone + Send + Sync> Bot<State> {
     }
 
     pub(super) async fn really_run(&mut self) {
-
         // Ping relays every 30 seconds. This seems to be necessary at the moment to keep the
         // connection open for more than a minute. Some relays are sending pings and this lib
         // responds with pongs but some relays are closing connections without pinging first

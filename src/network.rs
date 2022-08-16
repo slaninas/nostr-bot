@@ -84,6 +84,10 @@ pub enum ConnectionType {
 }
 
 pub async fn send_to_all(msg: &str, sinks: Vec<Sink>) {
+    if sinks.is_empty() {
+        warn!("Trying to send a message but there is no sink.");
+        return;
+    }
     for sink in sinks {
         send(msg.to_string(), sink).await;
     }
@@ -117,25 +121,25 @@ pub async fn send(msg: String, sink_wrap: Sink) {
         Ok(_) => {}
         // relay_listener is handling the connection and warns when the connection is lost so debug
         // is sufficient here, no need to use warn!
-        Err(e) => debug!("Unable to send message to {}: {}", sink_wrap.peer_addr, e),
+        Err(e) => warn!("Unable to send message to {}: {}", sink_wrap.peer_addr, e),
     }
 }
 
 pub async fn send_message(sink_wrap: Sink, message: tungstenite::Message) -> bool {
     let result = match sink_wrap.sink {
         SinkType::Direct(sink) => {
-            debug!("Sending {:?} to {} using direct connection.", message, sink_wrap.peer_addr);
-            sink.lock()
-                .await
-                .send(message)
-                .await
+            debug!(
+                "Sending {:?} to {} using direct connection.",
+                message, sink_wrap.peer_addr
+            );
+            sink.lock().await.send(message).await
         }
         SinkType::Socks5(sink) => {
-            debug!("Sending {:?} to {} over socks5.", message, sink_wrap.peer_addr);
-            sink.lock()
-                .await
-                .send(message)
-                .await
+            debug!(
+                "Sending {:?} to {} over socks5.",
+                message, sink_wrap.peer_addr
+            );
+            sink.lock().await.send(message).await
         }
     };
 
