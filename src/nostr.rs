@@ -1,4 +1,5 @@
 use secp256k1::Secp256k1;
+use std::str::FromStr;
 
 use log::debug;
 use serde::{Deserialize, Serialize};
@@ -55,17 +56,7 @@ impl Event {
 
         let (pubkey, _parity) = keypair.x_only_public_key();
 
-        let mut formatted_tags = Self::format_tags(&tags);
-        formatted_tags.retain(|c| !c.is_whitespace());
-
-        let msg = format!(
-            r#"[0,"{}",{},{},[{}],"{}"]"#,
-            pubkey, created_at, kind, formatted_tags, content
-        );
-        debug!("commitment '{}'\n", msg);
-        let id =
-            secp256k1::Message::from_hashed_data::<secp256k1::hashes::sha256::Hash>(msg.as_bytes());
-
+        let id = Self::get_id(pubkey, created_at, kind, &tags, &content);
         let signature = secp.sign_schnorr(&id, keypair);
 
         Event {
@@ -98,12 +89,56 @@ impl Event {
 
         for i in 0..tags.len() {
             let tag = &tags[i];
-            write!(formatted, r#"["{}"]"#, tag.join(r#"", ""#)).unwrap();
+            write!(formatted, r#"["{}"]"#, tag.join(r#"",""#)).unwrap();
             if i + 1 < tags.len() {
-                formatted.push_str(", ");
+                formatted.push_str(",");
             }
         }
+        println!("formatted tags >{}<", formatted);
         formatted
+    }
+
+    fn get_id(
+        pubkey: secp256k1::XOnlyPublicKey,
+        created_at: u64,
+        kind: u64,
+        tags: &Vec<Vec<String>>,
+        content: &String,
+    ) -> secp256k1::Message {
+        let mut formatted_tags = Self::format_tags(tags);
+        // formatted_tags.retain(|c| !c.is_whitespace());
+
+        let msg = format!(
+            r#"[0,"{}",{},{},[{}],"{}"]"#,
+            pubkey, created_at, kind, formatted_tags, content
+        );
+        secp256k1::Message::from_hashed_data::<secp256k1::hashes::sha256::Hash>(msg.as_bytes())
+    }
+
+    fn has_valid_sig(&self) -> bool {
+        let secp = secp256k1::Secp256k1::verification_only();
+        // TODO: Hold secp256k1::Message/Signature/XOnlyPublicKey in the Event so it don't have to be recomputed
+        let pubkey = match secp256k1::XOnlyPublicKey::from_str(&self.pubkey) {
+            Ok(pubkey) => pubkey,
+            Err(_) => return false,
+        };
+
+        let signature = match secp256k1::schnorr::Signature::from_str(&self.sig) {
+            Ok(signature) => signature,
+            Err(_) => return false,
+        };
+
+        let message = Event::get_id(
+            pubkey,
+            self.created_at,
+            self.kind,
+            &self.tags,
+            &self.content,
+        );
+
+        !secp
+            .verify_schnorr(&signature, &message, &pubkey)
+            .is_err()
     }
 }
 
@@ -195,4 +230,93 @@ fn escape(text: String) -> String {
     }
 
     escaped
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    const TEST_SECRET: &str = "67c497012395ded1448b06f4bc55abaa74e1fe8d60c3f635c980547171fb24f9";
+
+    // Valid signature for "nope" message with timestamp 1660659551
+    // Generated with TEST_SECRET, commitment '[0,"1640facabe8bcf73f3b3f85ad60b55154276806cd65226b8cbda680fc9149995",1660659551,1,[],"nope"]'
+    const NOPE_SIG: &str = "af372c8cb342d27d0c2363040b676aa7d68a0d028f09e73b567675f1beb15c29f07c970c7b65e3451f4fcc31e9c855534ad3d4e1a3af0d6bcdbab85c340df8bd";
+
+    fn test_keypair(secret: &str) -> secp256k1::KeyPair {
+        let secp = secp256k1::Secp256k1::new();
+        secp256k1::KeyPair::from_seckey_str(&secp, secret).unwrap()
+    }
+
+    fn get_test_event(keypair: secp256k1::KeyPair) -> Event {
+        Event::new(
+            &keypair,
+            1660656918,
+            1,
+            vec![
+                vec![
+                    "e".to_string(),
+                    "012df9baa5377d7f2b29922249fe36e2fde5daab3060342b93235c9b6db444dc".to_string(),
+                ],
+                vec![
+                    "p".to_string(),
+                    "8b5a3bd6143fc0ad19c80886628097140b8dafd7adc1302444dff8d8645540f8".to_string(),
+                ],
+                vec!["random_tag".to_string(), "just testing here".to_string()],
+            ],
+            "Testing nostr-bot.".to_string(),
+        )
+    }
+
+    #[test]
+    fn new_event() {
+        let keypair = test_keypair(TEST_SECRET);
+        let event = get_test_event(keypair);
+
+        // Check correct id was generated
+        assert_eq!(
+            event.id,
+            "90ce185727fed0c5695e9e20d9c2130bd1d4b8776078016423420d6110d353fe"
+        );
+
+        let signature = secp256k1::schnorr::Signature::from_str(&event.sig).unwrap();
+        let (x_only_public_key, _parity) = keypair.x_only_public_key();
+        let message = Event::get_id(
+            x_only_public_key,
+            event.created_at,
+            event.kind,
+            &event.tags,
+            &event.content,
+        );
+
+        // Check Event::get_id is generating correct ID
+        assert_eq!(message.to_string(), event.id);
+
+        // Verify the ID was signed with the TEST_SECRET
+        let secp = secp256k1::Secp256k1::verification_only();
+        assert!(!secp
+            .verify_schnorr(&signature, &message, &x_only_public_key)
+            .is_err());
+
+        // Now let's put signature (valid but for different message) and see if it's revoked
+        let mut event = event;
+        event.sig = NOPE_SIG.to_string();
+        let signature = secp256k1::schnorr::Signature::from_str(&event.sig).unwrap();
+
+        // This should fail
+        assert!(secp
+            .verify_schnorr(&signature, &message, &x_only_public_key)
+            .is_err());
+    }
+
+    #[test]
+    fn valid_event() {
+        let keypair = test_keypair(TEST_SECRET);
+        let event = get_test_event(keypair);
+
+        assert!(event.has_valid_sig());
+
+        let mut event = event;
+        event.sig = NOPE_SIG.to_string();
+
+        assert!(!event.has_valid_sig());
+    }
 }
