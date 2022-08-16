@@ -76,5 +76,6 @@ async fn main() {
         .command(Command::new("!no", wrap!(no)))
         .command(Command::new("!results", wrap!(results)))
         // And finally run it
-        .run().await;
+        .run()
+        .await;
 }

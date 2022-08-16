@@ -125,7 +125,6 @@ impl Event {
                 formatted.push(',');
             }
         }
-        println!("formatted tags >{}<", formatted);
         formatted
     }
 
