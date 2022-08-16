@@ -110,9 +110,9 @@ impl Event {
             return false;
         }
 
-        !secp
+        secp
             .verify_schnorr(&signature, &message, &pubkey)
-            .is_err()
+            .is_ok()
     }
 
     fn format_tags(tags: &Vec<Vec<String>>) -> String {
@@ -122,7 +122,7 @@ impl Event {
             let tag = &tags[i];
             write!(formatted, r#"["{}"]"#, tag.join(r#"",""#)).unwrap();
             if i + 1 < tags.len() {
-                formatted.push_str(",");
+                formatted.push(',');
             }
         }
         println!("formatted tags >{}<", formatted);
@@ -136,8 +136,7 @@ impl Event {
         tags: &Vec<Vec<String>>,
         content: &String,
     ) -> secp256k1::Message {
-        let mut formatted_tags = Self::format_tags(tags);
-        // formatted_tags.retain(|c| !c.is_whitespace());
+        let formatted_tags = Self::format_tags(tags);
 
         let msg = format!(
             r#"[0,"{}",{},{},[{}],"{}"]"#,
@@ -298,9 +297,9 @@ mod tests {
 
         // Verify the ID was signed with the TEST_SECRET
         let secp = secp256k1::Secp256k1::verification_only();
-        assert!(!secp
+        assert!(secp
             .verify_schnorr(&signature, &message, &x_only_public_key)
-            .is_err());
+            .is_ok());
 
         // Now let's put signature (valid but for different message) and see if it's revoked
         let mut event = event;

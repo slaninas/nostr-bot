@@ -285,7 +285,7 @@ async fn relay_listener(
     let listen = |message: Result<tungstenite::Message, tungstenite::Error>| async {
         let data = match message {
             Ok(data) => data,
-            Err(error) => {
+            Err(_) => {
                 return;
             }
         };
@@ -297,8 +297,6 @@ async fn relay_listener(
         }
 
         debug!("Got message {:?} from {}.", data, stream.peer_addr);
-
-        let data_str = data.to_string();
 
         match serde_json::from_str::<nostr::Message>(&data.to_string()) {
             Ok(message) => {
