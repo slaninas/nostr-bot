@@ -22,6 +22,22 @@ impl<State: Clone + Send + Sync> Bot<State> {
     }
 
     pub(super) async fn really_run(&mut self) {
+
+        // Ping relays every 30 seconds. This seems to be necessary at the moment to keep the
+        // connection open for more than a minute. Some relays are sending pings and this lib
+        // responds with pongs but some relays are closing connections without pinging first
+        {
+            let sender = self.sender.clone();
+            tokio::spawn(async move {
+                loop {
+                    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                    let sinks = sender.lock().await.sinks.clone();
+                    for sink in sinks {
+                        network::send_message(sink, tungstenite::Message::Ping(vec![])).await;
+                    }
+                }
+            });
+        }
         set_profile(
             &self.keypair,
             self.sender.clone(),
