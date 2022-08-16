@@ -18,26 +18,26 @@ pub use utils::{keypair_from_secret, unix_timestamp};
 
 pub type State<T> = std::sync::Arc<tokio::sync::Mutex<T>>;
 
-/// Just a wrapper so the [SenderRaw] can be shared
+/// Just a wrapper so the [SenderRaw] can be shared.
 pub type Sender = std::sync::Arc<tokio::sync::Mutex<SenderRaw>>;
 
-/// Holds sinks which can be used to send messages to relays
+/// Holds sinks which can be used to send messages to relays.
 pub struct SenderRaw {
     pub sinks: Vec<network::Sink>,
 }
 
 impl SenderRaw {
-    /// Sends event to all sinks it holds
+    /// Sends event to all sinks it holds.
     pub async fn send(&self, event: nostr::Event) {
         network::send_to_all(&event.format(), self.sinks.clone()).await;
     }
 
-    /// Sends string to all sinks it holds
+    /// Sends string to all sinks it holds.
     pub async fn send_str(&self, message: &str) {
         network::send_to_all(message, self.sinks.clone()).await;
     }
 
-    /// Adds new sink
+    /// Adds new sink.
     pub fn add(&mut self, sink: network::Sink) {
         self.sinks.push(sink);
     }
@@ -282,12 +282,12 @@ impl BotInfo {
 
 // Misc
 
-/// Returns new (empty) [Sender] which can be used to send messages to relays
+/// Returns new (empty) [Sender] which can be used to send messages to relays.
 pub fn new_sender() -> Sender {
     std::sync::Arc::new(tokio::sync::Mutex::new(SenderRaw { sinks: vec![] }))
 }
 
-/// Init [env_logger]
+/// Init [env_logger].
 pub fn init_logger() {
     // let _start = std::time::Instant::now();
     env_logger::Builder::from_default_env()
@@ -298,7 +298,7 @@ pub fn init_logger() {
         .init();
 }
 
-/// Wraps given object into Arc Mutex
+/// Wraps given object into Arc Mutex.
 pub fn wrap_state<T>(gift: T) -> State<T> {
     std::sync::Arc::new(tokio::sync::Mutex::new(gift))
 }

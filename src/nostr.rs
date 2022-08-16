@@ -12,7 +12,7 @@ pub struct Message {
 }
 
 /// Holds non signed nostr event, for more info about events see
-/// <https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures>
+/// <https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures>.
 pub struct EventNonSigned {
     pub created_at: u64,
     pub kind: u64,
@@ -28,7 +28,7 @@ impl EventNonSigned {
 }
 
 /// Holds nostr event, see
-/// <https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures>
+/// <https://github.com/nostr-protocol/nips/blob/master/01.md#events-and-signatures>.
 #[derive(Serialize, Deserialize)]
 pub struct Event {
     pub id: String,
@@ -41,7 +41,7 @@ pub struct Event {
 }
 
 impl Event {
-    /// Creates a new nostr event and signs it using `keypair`
+    /// Creates a new nostr event and signs it using `keypair`.
     pub fn new(
         keypair: &secp256k1::KeyPair,
         created_at: u64,
@@ -79,7 +79,7 @@ impl Event {
         }
     }
 
-    /// Formats an event into string which can send to relays
+    /// Formats an event into string which can send to relays.
     pub fn format(&self) -> String {
         format!(
             r#"["EVENT",{{"id": "{}", "pubkey": "{}", "created_at": {}, "kind": {}, "tags": [{}], "content": "{}", "sig": "{}"}}]"#,
@@ -107,10 +107,10 @@ impl Event {
     }
 }
 
-/// Returns tags that can be used to form event that is a reply to `event`
+/// Returns tags that can be used to form event that is a reply to `event`.
 ///
 /// This takes first "e" tag from the `event` (=root of the thread) and `event`s `id` and alo adds
-/// pubkey of the `event` author to the tags
+/// pubkey of the `event` author to the tags.
 pub fn tags_for_reply(event: Event) -> Vec<Vec<String>> {
     let mut e_tags = vec![];
     let mut p_tags = vec![];
@@ -170,7 +170,7 @@ pub fn get_profile_event(
     }
 }
 
-/// Returns [EventNonSigned] that is a reply to given `reply_to` event with content set to `content`
+/// Returns [EventNonSigned] that is a reply to given `reply_to` event with content set to `content`.
 pub fn get_reply(reply_to: Event, content: String) -> EventNonSigned {
     EventNonSigned {
         content,
@@ -181,7 +181,7 @@ pub fn get_reply(reply_to: Event, content: String) -> EventNonSigned {
 }
 
 fn escape(text: String) -> String {
-    // See https://github.com/jb55/nostril/blob/master/nostril.c
+    // See https://github.com/jb55/nostril/blob/master/nostril.c.
     let mut escaped = String::new();
     for c in text.chars() {
         match c {
