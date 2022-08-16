@@ -219,12 +219,62 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
     /// Adds a task that will be spawned [tokio::spawn].
     /// * `future` Future is saved and the task is spawned when [Bot::run] is called and bot
     /// connects to the relays.
+    ///
+    /// # Example
+    /// ```rust
+    /// // Sending message every 60 seconds
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     nostr_bot::init_logger();
+    ///
+    ///     let keypair = nostr_bot::keypair_from_secret(
+    ///         // Your secret goes here
+    ///     );
+    ///     let relays = vec![
+    ///         // List of relays goes here
+    ///     ];
+    ///
+    ///     let sender = nostr_bot::new_sender();
+    ///     // Empty state just for example sake
+    ///     let state = nostr_bot::wrap_state(());
+    ///
+    ///     // Tip: instead of capturing the sender you can capture your state
+    ///     // and update it here regularly
+    ///     let alive = {
+    ///         let sender = sender.clone();
+    ///         async move {
+    ///             loop {
+    ///                 let event = nostr_bot::EventNonSigned {
+    ///                     created_at: nostr_bot::unix_timestamp(),
+    ///                     kind: 1,
+    ///                     content: "I'm still alive.".to_string(),
+    ///                     tags: vec![],
+    ///                 }
+    ///                 .sign(&keypair);
+    ///                 sender.lock().await.send(event).await;
+    ///                 tokio::time::sleep(std::time::Duration::from_secs(60)).await;
+    ///             }
+    ///         }
+    ///     };
+    ///
+    ///     nostr_bot::Bot::new(keypair, relays, state)
+    ///         // You have to set the sender here so that the alive future
+    ///         // and the bot share the same one
+    ///         .sender(sender)
+    ///         .spawn(Box::pin(alive))
+    ///         .run()
+    ///         .await;
+    /// }
+    /// ```
     pub fn spawn(mut self, future: impl Future<Output = ()> + Unpin + Send + 'static) -> Self {
         self.to_spawn.push(Box::new(future));
         self
     }
 
     /// Sets sender.
+    ///
+    /// It can be used together with [Bot::spawn] to make the bot send messages outside it's
+    /// command responses.
     /// * `sender` Sender that will be used by bot to send nostr messages to relays.
     pub fn sender(mut self, sender: Sender) -> Self {
         self.sender = sender;
@@ -232,6 +282,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
     }
 
     /// Tells the bot to use socks5 proxy instead of direct connection to the internet.
+    ///
     /// If you need anonymity please **check yourself there are no leaks**.
     /// * `proxy_addr` Address of the proxy including port, e.g. `127.0.0.1:9050`.
     pub fn use_socks5(mut self, proxy_addr: &str) -> Self {
