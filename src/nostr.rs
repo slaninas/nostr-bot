@@ -84,6 +84,37 @@ impl Event {
         )
     }
 
+    /// Checks whether the signature for the event is valid.
+    pub fn has_valid_sig(&self) -> bool {
+        let secp = secp256k1::Secp256k1::verification_only();
+        // TODO: Hold secp256k1::Message/Signature/XOnlyPublicKey in the Event so it don't have to be recreated
+        let pubkey = match secp256k1::XOnlyPublicKey::from_str(&self.pubkey) {
+            Ok(pubkey) => pubkey,
+            Err(_) => return false,
+        };
+
+        let signature = match secp256k1::schnorr::Signature::from_str(&self.sig) {
+            Ok(signature) => signature,
+            Err(_) => return false,
+        };
+
+        let message = Event::get_id(
+            pubkey,
+            self.created_at,
+            self.kind,
+            &self.tags,
+            &self.content,
+        );
+
+        if message.to_string() != self.id {
+            return false;
+        }
+
+        !secp
+            .verify_schnorr(&signature, &message, &pubkey)
+            .is_err()
+    }
+
     fn format_tags(tags: &Vec<Vec<String>>) -> String {
         let mut formatted = String::new();
 
@@ -115,31 +146,6 @@ impl Event {
         secp256k1::Message::from_hashed_data::<secp256k1::hashes::sha256::Hash>(msg.as_bytes())
     }
 
-    fn has_valid_sig(&self) -> bool {
-        let secp = secp256k1::Secp256k1::verification_only();
-        // TODO: Hold secp256k1::Message/Signature/XOnlyPublicKey in the Event so it don't have to be recomputed
-        let pubkey = match secp256k1::XOnlyPublicKey::from_str(&self.pubkey) {
-            Ok(pubkey) => pubkey,
-            Err(_) => return false,
-        };
-
-        let signature = match secp256k1::schnorr::Signature::from_str(&self.sig) {
-            Ok(signature) => signature,
-            Err(_) => return false,
-        };
-
-        let message = Event::get_id(
-            pubkey,
-            self.created_at,
-            self.kind,
-            &self.tags,
-            &self.content,
-        );
-
-        !secp
-            .verify_schnorr(&signature, &message, &pubkey)
-            .is_err()
-    }
 }
 
 /// Returns tags that can be used to form event that is a reply to `event`.
@@ -314,9 +320,36 @@ mod tests {
 
         assert!(event.has_valid_sig());
 
-        let mut event = event;
+        // Changing signature should make the event invalid
+        let mut event = get_test_event(keypair);
         event.sig = NOPE_SIG.to_string();
+        assert!(!event.has_valid_sig());
 
+        // Now let's put some random values into the original Event and check that it becomes
+        // invalid
+
+        // Changing id
+        let mut event = get_test_event(keypair);
+        event.id = "9892364de48ac0e02cf2fc3c4ddb58f29721bd0024db06495a8f9396710dbe36".to_string();
+        assert!(!event.has_valid_sig());
+
+        let mut event = get_test_event(keypair);
+        event.created_at = 123456789;
+        assert!(!event.has_valid_sig());
+
+        // Changing tags
+        let mut event = get_test_event(keypair);
+        event.tags = vec![vec!["random_tag".to_string(), "hohoho".to_string()]];
+        assert!(!event.has_valid_sig());
+
+        // Changing tags
+        let mut event = get_test_event(keypair);
+        event.tags = vec![vec!["random_tag".to_string(), "hohoho".to_string()]];
+        assert!(!event.has_valid_sig());
+
+        // Changing tags
+        let mut event = get_test_event(keypair);
+        event.content = "Difference content".to_string();
         assert!(!event.has_valid_sig());
     }
 }
