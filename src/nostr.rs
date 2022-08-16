@@ -21,7 +21,7 @@ pub struct EventNonSigned {
 }
 
 impl EventNonSigned {
-    /// Signs event using `keypair` and returns it
+    /// Returns event signed by `keypair`.
     pub fn sign(self, keypair: &secp256k1::KeyPair) -> Event {
         Event::new(keypair, self.created_at, self.kind, self.tags, self.content)
     }
