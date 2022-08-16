@@ -271,7 +271,7 @@ impl BotInfo {
         let mut results = vec![];
         for relay in sinks {
             let peer_addr = relay.peer_addr.clone();
-            if network::ping(relay).await {
+            if network::send_message(relay, tungstenite::Message::Ping(vec![])).await {
                 results.push(peer_addr);
             }
         }

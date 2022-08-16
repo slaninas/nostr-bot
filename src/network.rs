@@ -121,21 +121,20 @@ pub async fn send(msg: String, sink_wrap: Sink) {
     }
 }
 
-pub async fn ping(sink_wrap: Sink) -> bool {
-    let msg = "ping".to_string();
+pub async fn send_message(sink_wrap: Sink, message: tungstenite::Message) -> bool {
     let result = match sink_wrap.sink {
         SinkType::Direct(sink) => {
-            debug!("Sending >{}< to {} over Direct", msg, sink_wrap.peer_addr);
+            debug!("Sending {:?} to {} using direct connection.", message, sink_wrap.peer_addr);
             sink.lock()
                 .await
-                .send(tungstenite::Message::Text(msg))
+                .send(message)
                 .await
         }
         SinkType::Socks5(sink) => {
-            debug!("Sending >{}< to {} over socks5", msg, sink_wrap.peer_addr);
+            debug!("Sending {:?} to {} over socks5.", message, sink_wrap.peer_addr);
             sink.lock()
                 .await
-                .send(tungstenite::Message::Text(msg))
+                .send(message)
                 .await
         }
     };

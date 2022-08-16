@@ -265,13 +265,19 @@ async fn relay_listener(
         let data = match message {
             Ok(data) => data,
             Err(error) => {
-                info!("Stream read failed: {}", error);
                 return;
             }
         };
 
+        if let tungstenite::Message::Ping(payload) = data.clone() {
+            debug!("Received ping from {}, returning pong", stream.peer_addr);
+            network::send_message(sink.clone(), tungstenite::Message::Ping(payload));
+            return;
+        }
+
+        debug!("Got message {:?} from {}.", data, stream.peer_addr);
+
         let data_str = data.to_string();
-        debug!("Got message >{}< from {}.", data_str, stream.peer_addr);
 
         match serde_json::from_str::<nostr::Message>(&data.to_string()) {
             Ok(message) => {
