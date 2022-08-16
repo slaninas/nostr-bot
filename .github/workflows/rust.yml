@@ -1,4 +1,4 @@
-name: Tests + clippy
+name: Tests + clippy (master)
 
 on:
   push:
