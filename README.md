@@ -1,5 +1,6 @@
-![workflow](https://github.com/slaninas/nostr-bot/actions/workflows/rust.yml/badge.svg)
+# Nostr Bot
 
+![workflow](https://github.com/slaninas/nostr-bot/actions/workflows/rust.yml/badge.svg)
 
 Do you want to run your own nostr bot? You've come to the right place.
 This crate makes it easy to implement your own bot that reacts to [nostr](https://github.com/nostr-protocol/nostr) events, using [tokio](https://github.com/tokio-rs/tokio).
