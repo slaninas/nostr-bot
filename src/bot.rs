@@ -291,8 +291,8 @@ async fn relay_listener(
         };
 
         if let tungstenite::Message::Ping(payload) = data.clone() {
-            debug!("Received ping from {}, returning pong", stream.peer_addr);
-            network::send_message(sink.clone(), tungstenite::Message::Ping(payload)).await;
+            debug!("Received ping from {}, returning pong.", stream.peer_addr);
+            network::send_message(sink.clone(), tungstenite::Message::Pong(payload)).await;
             return;
         }
 
