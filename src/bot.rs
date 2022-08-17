@@ -103,10 +103,12 @@ impl<State: Clone + Send + Sync> Bot<State> {
 
         info!("Main bot listener started.");
         while let Some(message) = rx.recv().await {
-
             let event_id = message.content.id.clone();
             if !message.content.has_valid_sig() {
-                warn!("Signature for event with id={} is not valid, ignoring.", event_id);
+                warn!(
+                    "Signature for event with id={} is not valid, ignoring.",
+                    event_id
+                );
                 continue;
             }
 

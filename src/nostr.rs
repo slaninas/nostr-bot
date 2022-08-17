@@ -110,9 +110,7 @@ impl Event {
             return false;
         }
 
-        secp
-            .verify_schnorr(&signature, &message, &pubkey)
-            .is_ok()
+        secp.verify_schnorr(&signature, &message, &pubkey).is_ok()
     }
 
     fn format_tags(tags: &Vec<Vec<String>>) -> String {
@@ -143,7 +141,6 @@ impl Event {
         );
         secp256k1::Message::from_hashed_data::<secp256k1::hashes::sha256::Hash>(msg.as_bytes())
     }
-
 }
 
 /// Returns tags that can be used to form event that is a reply to `event`.
