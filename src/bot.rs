@@ -296,6 +296,11 @@ async fn relay_listener(
             return;
         }
 
+        if let tungstenite::Message::Pong(_payload) = data.clone() {
+            debug!("Received pong from {}.", stream.peer_addr);
+            return;
+        }
+
         debug!("Got message {:?} from {}.", data, stream.peer_addr);
 
         match serde_json::from_str::<nostr::Message>(&data.to_string()) {
