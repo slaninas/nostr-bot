@@ -122,6 +122,7 @@ macro_rules! wrap_extra {
 // Bot stuff
 
 /// Main sctruct that holds every data necessary to run a bot.
+/// The core purpose is to take care of the relays connections and listening for commands.
 pub struct Bot<State: Clone + Send + Sync> {
     keypair: secp256k1::KeyPair,
     relays: Vec<String>,
