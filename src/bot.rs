@@ -123,7 +123,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
             let sender = self.sender.clone();
             let commands = self.commands.clone();
             let state = self.state.clone();
-            let keypair = keypair.clone();
+            let keypair = *keypair;
             let bot_info = bot_info.clone();
             tokio::spawn(async move {
                 let response =
