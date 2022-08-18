@@ -9,8 +9,7 @@ pub(super) type UserCommands<State> = Vec<Command<State>>;
 pub(super) type Commands<State> = std::sync::Arc<tokio::sync::Mutex<UserCommands<State>>>;
 
 // Implementation of internal Bot methods
-
-impl<State: Clone + Send + Sync> Bot<State> {
+impl<State: Clone + Send + Sync + 'static> Bot<State> {
     pub(super) async fn connect(&mut self) {
         debug!("Connecting to relays.");
         let (sinks, streams) =
@@ -121,14 +120,20 @@ impl<State: Clone + Send + Sync> Bot<State> {
 
             debug!("Handling {}", message.content.format());
 
-            let response = self
-                .execute_command(message.content, bot_info.clone())
-                .await;
+            let sender = self.sender.clone();
+            let commands = self.commands.clone();
+            let state = self.state.clone();
+            let keypair = keypair.clone();
+            let bot_info = bot_info.clone();
+            tokio::spawn(async move {
+                let response =
+                    Bot::execute_command(commands, state, message.content, bot_info).await;
 
-            if let Some(response) = response {
-                let response = response;
-                self.sender.lock().await.send(response.sign(keypair)).await;
-            }
+                if let Some(response) = response {
+                    let response = response;
+                    sender.lock().await.send(response.sign(&keypair)).await;
+                }
+            });
         }
     }
 
@@ -157,7 +162,8 @@ impl<State: Clone + Send + Sync> Bot<State> {
     }
 
     async fn execute_command(
-        &self,
+        commands: Commands<State>,
+        state: State,
         command_event: Event,
         bot_info: BotInfo,
     ) -> Option<EventNonSigned> {
@@ -171,16 +177,18 @@ impl<State: Clone + Send + Sync> Bot<State> {
         let mut fallthrough_command = None;
         let mut functor = None;
 
-        let commands = self.commands.lock().await;
+        {
+            let commands = commands.lock().await;
 
-        for command in commands.iter() {
-            if command.prefix.is_empty() {
-                fallthrough_command = Some(&command.functor);
-                continue;
-            }
+            for command in commands.iter() {
+                if command.prefix.is_empty() {
+                    fallthrough_command = Some(command.functor.clone());
+                    continue;
+                }
 
-            if command_part.starts_with(&command.prefix) {
-                functor = Some(&command.functor);
+                if command_part.starts_with(&command.prefix) {
+                    functor = Some(command.functor.clone());
+                }
             }
         }
 
@@ -197,11 +205,9 @@ impl<State: Clone + Send + Sync> Bot<State> {
 
         if let Some(functor) = functor_to_call {
             match functor {
-                FunctorType::Basic(functor) => {
-                    Some((functor)(command_event, self.state.clone()).await)
-                }
+                FunctorType::Basic(functor) => Some((functor)(command_event, state.clone()).await),
                 FunctorType::Extra(functor) => {
-                    Some((functor)(command_event, self.state.clone(), bot_info).await)
+                    Some((functor)(command_event, state.clone(), bot_info).await)
                 }
             }
         } else {

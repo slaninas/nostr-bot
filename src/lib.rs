@@ -44,26 +44,32 @@ impl SenderRaw {
 }
 
 // Functors
+pub type FunctorTestRaw<State> =
+    fn(nostr::Event, State) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send>>;
+
+pub type FunctorTest<State> = Box<FunctorTestRaw<State>>;
+
 pub type FunctorRaw<State> =
-    dyn Fn(
+    fn(
         nostr::Event,
         State,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = nostr::EventNonSigned>>>;
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = nostr::EventNonSigned> + Send>>;
 
 pub type Functor<State> = Box<FunctorRaw<State>>;
 
 pub type FunctorExtraRaw<State> =
-    dyn Fn(
+    fn(
         nostr::Event,
         State,
         BotInfo,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = nostr::EventNonSigned>>>;
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = nostr::EventNonSigned> + Send>>;
 
 pub type FunctorExtra<State> = Box<FunctorExtraRaw<State>>;
 
 /// Describes various functor types.
 ///
 /// You should not need to use it directly, use [wrap] or [wrap_extra] macros instead.
+#[derive(Clone)]
 pub enum FunctorType<State> {
     Basic(Functor<State>),
     Extra(FunctorExtra<State>),
