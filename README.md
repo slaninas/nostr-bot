@@ -16,14 +16,14 @@ used by adding `nostr-bot` to your dependencies in your project's `Cargo.toml`.
 
 ```toml
 [dependencies]
-nostr-bot = "0.1"
+nostr-bot = "0.2"
 
 ```
 
 You can also use GitHub [repository](https://github.com/slaninas/nostr-bot):
 ```toml
 [dependencies]
-nostr-bot = { git = "https://github.com/slaninas/nostr-bot", rev = "v0.1" }
+nostr-bot = { git = "https://github.com/slaninas/nostr-bot", rev = "v0.2.3" }
 ```
 
 Or you can clone the [repository](https://github.com/slaninas/nostr-bot) and use it locally:
