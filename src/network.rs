@@ -78,6 +78,7 @@ pub struct Stream {
 }
 
 /// Direct connection to the internet or would you rather like a socks5 proxy?
+#[derive(Clone)]
 pub enum ConnectionType {
     Direct,
     Socks5,
