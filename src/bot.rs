@@ -266,7 +266,7 @@ pub(super) async fn set_profile(
 pub(super) async fn request_subscription(keypair: &secp256k1::KeyPair, sink: network::Sink) {
     let random_string = rand::thread_rng()
         .sample_iter(rand::distributions::Alphanumeric)
-        .take(64)
+        .take(32)
         .collect::<Vec<_>>();
     let random_string = String::from_utf8(random_string).unwrap();
     // Listen for my pubkey mentions
