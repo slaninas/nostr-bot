@@ -155,7 +155,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
             } else {
                 "\"\"".to_string()
             };
-            writeln!(help, "{}...{}", prefix, description).unwrap();
+            writeln!(help, "{prefix}...{description}").unwrap();
         }
 
         help
@@ -319,7 +319,7 @@ async fn relay_listener(
                 );
                 match main_bot_tx.send(message).await {
                     Ok(_) => {}
-                    Err(e) => panic!("Error sending message to main bot: {}", e),
+                    Err(e) => panic!("Error sending message to main bot: {e}"),
                 }
             }
             Err(e) => {

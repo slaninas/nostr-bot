@@ -135,10 +135,7 @@ impl Event {
     ) -> secp256k1::Message {
         let formatted_tags = Self::format_tags(tags);
 
-        let msg = format!(
-            r#"[0,"{}",{},{},[{}],"{}"]"#,
-            pubkey, created_at, kind, formatted_tags, content
-        );
+        let msg = format!(r#"[0,"{pubkey}",{created_at},{kind},[{formatted_tags}],"{content}"]"#);
         secp256k1::Message::from_hashed_data::<secp256k1::hashes::sha256::Hash>(msg.as_bytes())
     }
 }
