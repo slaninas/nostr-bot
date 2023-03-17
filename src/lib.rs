@@ -1,5 +1,7 @@
 #![doc = include_str!("../README.md")]
 
+// TODO: Proper error handling withou unwraps + enable unwrap check in clippy
+
 use log::debug;
 use std::future::Future;
 
