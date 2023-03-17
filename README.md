@@ -89,7 +89,7 @@ async fn main() {
     ];
 
     let keypair = keypair_from_secret(
-        // Your secret goes here
+        // Your secret goes here, can be hex or bech32 (nsec1...)
         "0000000000000000000000000000000000000000000000000000000000000001",
     );
 
