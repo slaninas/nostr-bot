@@ -4,6 +4,7 @@ use std::str::FromStr;
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::fmt::Write;
+use nostr_types::{SubscriptionId, Filter};
 
 #[derive(Serialize, Deserialize)]
 pub struct Message {
@@ -137,6 +138,21 @@ impl Event {
 
         let msg = format!(r#"[0,"{pubkey}",{created_at},{kind},[{formatted_tags}],"{content}"]"#);
         secp256k1::Message::from_hashed_data::<secp256k1::hashes::sha256::Hash>(msg.as_bytes())
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Subscription {
+    pub id: SubscriptionId,
+    pub filters: Vec<Filter>,
+}
+
+impl Subscription {
+    pub fn new(id: SubscriptionId, filters: Vec<Filter>) -> Self {
+        Subscription {
+        id,
+        filters,
+        }
     }
 }
 

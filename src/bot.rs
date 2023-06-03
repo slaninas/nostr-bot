@@ -8,6 +8,9 @@ use crate::*;
 pub(super) type UserCommands<State> = Vec<Command<State>>;
 pub(super) type Commands<State> = std::sync::Arc<tokio::sync::Mutex<UserCommands<State>>>;
 
+pub(super) type BotHandlers<State> = Vec<Handler<State>>;
+pub(super) type Handlers<State> = std::sync::Arc<tokio::sync::Mutex<BotHandlers<State>>>;
+
 // Implementation of internal Bot methods
 impl<State: Clone + Send + Sync + 'static> Bot<State> {
     pub(super) async fn connect(&mut self) {
@@ -119,21 +122,29 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
             handled_events.insert(event_id);
 
             debug!("Handling {}", message.content.format());
+            let handler = self.subscription_ids.get(&message.subscription_id);
 
-            let sender = self.sender.clone();
-            let commands = self.commands.clone();
             let state = self.state.clone();
-            let keypair = *keypair;
-            let bot_info = bot_info.clone();
-            tokio::spawn(async move {
-                let response =
-                    Bot::execute_command(commands, state, message.content, bot_info).await;
 
-                if let Some(response) = response {
-                    let response = response;
-                    sender.lock().await.send(response.sign(&keypair)).await;
-                }
-            });
+            match handler {
+                Some(FunctorType::Option(functor)) => {(functor)(message.content, state); ()},
+                Some(_) => (),
+                None => {
+                    let sender = self.sender.clone();
+                    let commands = self.commands.clone();
+                    let keypair = *keypair;
+                    let bot_info = bot_info.clone();
+                    tokio::spawn(async move {
+                        let response =
+                            Bot::execute_command(commands, state, message.content, bot_info).await;
+
+                        if let Some(response) = response {
+                            let response = response;
+                            sender.lock().await.send(response.sign(&keypair)).await;
+                        }
+                    });
+                },
+            }
         }
     }
 
@@ -209,6 +220,7 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
                 FunctorType::Extra(functor) => {
                     Some((functor)(command_event, state.clone(), bot_info).await)
                 }
+                FunctorType::Option(_) => None,
             }
         } else {
             None
