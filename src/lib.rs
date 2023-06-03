@@ -3,7 +3,7 @@
 // TODO: Proper error handling withou unwraps + enable unwrap check in clippy
 
 use log::debug;
-use std::future::Future;
+use std::{future::Future, collections::HashMap};
 
 mod bot;
 mod network;
@@ -15,7 +15,7 @@ pub extern crate secp256k1;
 pub extern crate tokio;
 
 pub use network::ConnectionType;
-pub use nostr::{get_reply, tags_for_reply, Event, EventNonSigned};
+pub use nostr::{get_reply, tags_for_reply, Event, EventNonSigned, Subscription};
 pub use utils::{keypair_from_secret, unix_timestamp};
 
 pub type State<T> = std::sync::Arc<tokio::sync::Mutex<T>>;
@@ -68,6 +68,14 @@ pub type FunctorExtraRaw<State> =
 
 pub type FunctorExtra<State> = Box<FunctorExtraRaw<State>>;
 
+pub type FunctorOptionRaw<State> =
+    fn(
+        nostr::Event,
+        State,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Option<nostr::EventNonSigned>> + Send>>;
+
+pub type FunctorOption<State> = Box<FunctorOptionRaw<State>>;
+
 /// Describes various functor types.
 ///
 /// You should not need to use it directly, use [wrap] or [wrap_extra] macros instead.
@@ -75,6 +83,7 @@ pub type FunctorExtra<State> = Box<FunctorExtraRaw<State>>;
 pub enum FunctorType<State> {
     Basic(Functor<State>),
     Extra(FunctorExtra<State>),
+    Option(FunctorOption<State>)
 }
 
 // Commands
@@ -107,6 +116,31 @@ impl<State: Clone + Send + Sync> Command<State> {
     }
 }
 
+pub struct Handler<State: Clone + Send + Sync> {
+    pub subs: Vec<nostr::Subscription>,
+    functor: FunctorType<State>
+}
+
+impl<State: Clone + Send + Sync> Handler<State> {
+    pub fn new(sub: Subscription, functor: FunctorType<State>) -> Self {
+        match functor {
+            FunctorType::Option(_) => 
+            Self {
+                subs: vec![sub],
+                functor,
+            },
+            _ => panic!("Expected FunctorType::Option")
+        }
+        
+        
+    }
+}
+
+pub struct Actor<State: Clone + Send + Sync> {
+    pub subs: Vec<nostr::Subscription>,
+    pub handler: Handler<State>,
+}
+
 // Macros for easier wrapping
 
 /// Wraps your functor so it can be passed to the bot.
@@ -127,6 +161,13 @@ macro_rules! wrap_extra {
     };
 }
 
+#[macro_export]
+macro_rules! wrap_option {
+    ($functor:expr) => {
+        FunctorType::Option(Box::new(|event, state| Box::pin($functor(event, state))))
+    };
+}
+
 // Bot stuff
 
 /// Main sctruct that holds every data necessary to run a bot.
@@ -140,6 +181,11 @@ pub struct Bot<State: Clone + Send + Sync> {
     user_commands: bot::UserCommands<State>,
     commands: bot::Commands<State>,
     state: State,
+
+    bot_handlers: bot::BotHandlers<State>,
+    handlers: bot::Handlers<State>,
+
+    subscription_ids: HashMap<String, FunctorType<State>>,
 
     profile: bot::Profile,
 
@@ -162,7 +208,11 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
 
             user_commands: vec![],
             commands: std::sync::Arc::new(tokio::sync::Mutex::new(vec![])),
+
+            bot_handlers: vec![],
+            handlers: std::sync::Arc::new(tokio::sync::Mutex::new(vec![])),
             state,
+            subscription_ids: HashMap::new(),
 
             profile: bot::Profile::new(),
 
@@ -225,6 +275,26 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         self
     }
 
+    /// Registers 'handler'.
+    /// 
+    /// When a message comes in for a subscription
+    pub fn handler(mut self, handler: Handler<State>) -> Self {
+        for sub in & handler.subs {
+            self.subscription_ids.insert(sub.id.to_string(), handler.functor.clone());
+        } 
+        self.bot_handlers.push(handler);
+        self
+    }
+
+    pub fn subscriptions(self) -> Vec<Subscription> {
+        let mut subs = vec![];
+        for handler in self.bot_handlers {
+            for sub in handler.subs {
+                subs.push(sub);
+            }
+        }
+        subs
+    }
     /// Adds a task that will be spawned [tokio::spawn].
     /// * `future` Future is saved and the task is spawned when [Bot::run] is called and bot
     /// connects to the relays.
@@ -307,6 +377,9 @@ impl<State: Clone + Send + Sync + 'static> Bot<State> {
         let mut user_commands = vec![];
         std::mem::swap(&mut user_commands, &mut self.user_commands);
         *self.commands.lock().await = user_commands;
+        let mut bot_handlers = vec![];
+        std::mem::swap(&mut bot_handlers, &mut self.bot_handlers);
+        *self.handlers.lock().await = bot_handlers;
         if self.streams.is_none() {
             debug!("Running run() but there is no connection yet. Connecting now.");
             self.connect().await;
